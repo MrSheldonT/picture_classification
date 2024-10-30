@@ -1,0 +1,8 @@
+venv/
+entorno/
+.env
+src/pictures/
+__pycache__/
+*.py[cod]
+.__pycache__/
+src/utils/environment_variables.bash
