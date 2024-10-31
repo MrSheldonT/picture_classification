@@ -309,6 +309,7 @@ def show_tags(token_data, original_token):
 
 
 @tags_and_categories_bp.route('/show_tags_from_picture', methods=['GET'])
+@token_required
 def show_tags_from_picture(token_data, original_token):
     picture_id = request.args.get('picture_id', type=str)
 
@@ -338,6 +339,7 @@ def show_tags_from_picture(token_data, original_token):
 
 
 @tags_and_categories_bp.route('/delete_tag', methods=['DELETE'])
+@token_required
 def delete_tag(token_data, original_token):
     tag_id = request.form.get('tag_id', type=int)
     table = 'tag'
