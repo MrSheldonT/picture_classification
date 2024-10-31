@@ -88,11 +88,15 @@ def show_ratings_from_picture(token_data, original_token):
         cursor = mysql.connection.cursor()
         query = """
                     SELECT 
-                        user_id, picture_id, score, date 
+                        r.user_id, r.picture_id, r.score, r.date, t.name
                     FROM 
-                        rating
+                        rating AS r
+                    JOIN 
+                        tag AS t
+                    ON t.tag_id = r.tag_id
                     WHERE 
                         picture_id = %s
+
                     LIMIT %s
                     OFFSET %s
                 """
@@ -123,9 +127,12 @@ def show_rating_from_user(token_data, original_token):
         cursor = mysql.connection.cursor()
         query = """
                     SELECT
-                        user_id, picture_id, score, date
+                        r.user_id, r.picture_id, r.score, r.date, t.name
                     FROM 
-                        rating
+                        rating AS r
+                    JOIN 
+                        tag AS t
+                    ON t.tag_id = r.tag_id
                     WHERE
                         user_id = %s
                     LIMIT %s

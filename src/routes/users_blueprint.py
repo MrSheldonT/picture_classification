@@ -203,6 +203,7 @@ def login_user():
     message_enpoint = ""
     user = ""
 
+
     if (not user_name and not user_email) or not user_password:
         return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'user_name': user_name,'user_email': user_email, 'user_password' : user_password}), 400
 
@@ -221,20 +222,23 @@ def login_user():
         user = cursor.fetchone()
 
         if user and bcrypt.check_password_hash(user[2], user_password):
+            print("YAA")
             token = jwt.encode({
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
             message_enpoint = {'status': 'success', 'message' : 'Successful login', 'token' : token}
-            status_response = StatusResponse.SUCCESS.value
+            print("YAA")
+            status_response = StatusResponse.SUCCESS
+            print("YAA")
             return jsonify(message_enpoint), 200
         message_enpoint = {'status': 'error', 'message': 'Incorrect username or password'}
-        status_response = StatusResponse.ERROR.value
+        status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 401
     
     except Exception as e:
         message_enpoint = {'status': 'error', 'message': str(e)}
-        status_response = StatusResponse.ERROR.value
+        status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 500
     
     finally:
