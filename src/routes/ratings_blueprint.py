@@ -47,8 +47,14 @@ def create_rating(token_data, original_token):
                 """
         cursor.execute(query,(picture_id, token_data['user_id'], rating_score, rating_date, tag_id))
         mysql.connection.commit()
+        select_query = """
+            SELECT rating_id FROM rating WHERE picture_id=%s AND user_id=%s AND tag_id=%s
+
+        """
+        cursor.execute(select_query,(picture_id, token_data['user_id'],tag_id))
+        response2 = cursor.fetchall()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id }
+        message_enpoint = {'status': 'success', 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id,'rating_id':response2[0][0] }
 
         return jsonify(message_enpoint), 201
     
@@ -81,22 +87,21 @@ def show_ratings_from_picture(token_data, original_token):
     offset = (page - 1) * quantity 
 
     if not picture_id:
-        return jsonify({'status' : 'error' , 'message' : Status.NOT_ENTERED.value, 'picture_id' : picture_id }), 400
+        return jsonify({'status' : 'error' , 'message' : str(Status.NOT_ENTERED), 'picture_id' : picture_id }), 400
     
     cursor = None
     try:
         cursor = mysql.connection.cursor()
         query = """
-                    SELECT 
-                        r.user_id, r.picture_id, r.score, r.date, t.name
+                    SELECT  
+                        rating.user_id, rating.picture_id, rating.score, rating.date,rating.tag_id,rating.rating_id,tag.name,user.name,category.category_id 
                     FROM 
-                        rating AS r
-                    JOIN 
-                        tag AS t
-                    ON t.tag_id = r.tag_id
+                        rating
+                    JOIN tag ON tag.tag_id = rating.tag_id
+                    JOIN user ON user.user_id = rating.user_id
+                    JOIN category ON tag.category_id = category.category_id
                     WHERE 
                         picture_id = %s
-
                     LIMIT %s
                     OFFSET %s
                 """
@@ -116,29 +121,32 @@ def show_rating_from_user(token_data, original_token):
     
     page = request.args.get('page', default=1, type=int)
     quantity = request.args.get('quantity', default=50, type=int)
+    picture_id = request.args.get('picture_id',type=str)
     user_id = request.args.get('user_id', type=int)
+    category_id = request.args.get('category_id',type=int)
     offset = (page - 1) * quantity 
     
-    if not user_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'user_id': user_id})
+    if not all([user_id,category_id,picture_id]):
+        return jsonify({'status': 'error', 'message': str(Status.NOT_ENTERED), 'user_id': user_id,'category_id':category_id,'picture_id':picture_id})
     
     cursor = None
     try:
         cursor = mysql.connection.cursor()
         query = """
                     SELECT
-                        r.user_id, r.picture_id, r.score, r.date, t.name
+                        rating.user_id, rating.picture_id, rating.score, rating.date, rating.tag_id ,rating.rating_id,tag.name,category.category_id
                     FROM 
-                        rating AS r
-                    JOIN 
-                        tag AS t
-                    ON t.tag_id = r.tag_id
+                        rating
+                    JOIN
+                        tag ON tag.tag_id = rating.tag_id
+                    JOIN
+                        category ON tag.category_id = category.category_id
                     WHERE
-                        user_id = %s
+                        rating.user_id = %s and rating.picture_id = %s and category.category_id = %s
                     LIMIT %s
                     OFFSET %s
                 """
-        cursor.execute(query, (user_id, quantity, offset))
+        cursor.execute(query, (user_id,picture_id,category_id, quantity, offset))
         response = cursor.fetchall()
         return jsonify({'status': 'success', 'message': 'Consulted correctly', 'response': response}), 200
     
@@ -203,51 +211,32 @@ def update_rating(token_data, original_token):
 @ratings_bp.route('/delete_rating', methods = ['DELETE'])
 @token_required
 def delete_rating(token_data, original_token):
-    
-    picture_id = request.form.get('picture_id', type=str)
-    tag_id = request.form.get('tag_id', type=int)
-    
-    status_response = ""
-    message_enpoint = ""
+    rating_id = request.form.get('rating_id', type=int)
+    table = 'rating'
+    parameter = 'rating_id'
 
-    
+    if not rating_id:
+         return jsonify({'status': 'error', 'message': rating_id}), 400
+
+    if not exist_record_in_table(table, parameter, rating_id):
+        return jsonify({'status': 'error', 'message': 'The requested record was not found, please check again.'}), 404
+
     cursor = None
     try:
         cursor = mysql.connection.cursor()
         query = """
-                    SELECT
-                        score
-                    FROM
-                        rating
-                     WHERE 
-                        picture_id=%s and tag_id=%s and user_id=%s
-        """
-        cursor.execute(query, (picture_id, tag_id, token_data['user_id'] ))
-        query = """
                     DELETE FROM
                         rating
                     WHERE 
-                        picture_id=%s and tag_id=%s and user_id=%s
+                        rating_id = %s
                 """
-        cursor.execute(query, (picture_id, tag_id, token_data['user_id'] ))
+        cursor.execute(query, (rating_id, ))
         mysql.connection.commit()
-        message_enpoint = {'status': 'success', 'message' : 'Correctly deleted'}
-        status_response = StatusResponse.SUCCESS
-        return jsonify(message_enpoint), 200
+        return jsonify({'status': 'success', 'message' : 'Correctly deleted'}), 200
     
     except Exception as e:
-        status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
-        return jsonify(message_enpoint), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
     finally:
         if cursor:
             cursor.close()
-        register_audit(
-                type_=Transaccion.DELETE, 
-                request=request.url,
-                message=message_enpoint,
-                status=status_response,
-                user_id=token_data['user_id'], 
-                entity=Table.rating
-        )

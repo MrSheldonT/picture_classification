@@ -167,49 +167,68 @@ def show_all_pictures(token_data, original_token):
             cursor.close()
 
 
-@pictures_bp.route('/show_picture_from_album',methods=['GET'])
+@pictures_bp.route('/show_picture_from_album', methods=['GET'])
 @token_required
 def show_picture_from_album(token_data, original_token):
     
     album_id = request.args.get('album_id', default=1, type=int)
     page = request.args.get('page', default=1, type=int)
     quantity = request.args.get('quantity', default=20, type=int)
-    offset = ( page - 1 ) * quantity
+    offset = (page - 1) * quantity
     
     if not album_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
+        return jsonify({'status': 'error', 'message': str(Status.NOT_ENTERED), 'album_id': album_id})
 
     cursor = None
     try:    
         cursor = mysql.connection.cursor()
+
+        # Obtener el total de imágenes para calcular el número total de páginas
+        count_query = "SELECT COUNT(*) FROM picture WHERE album_id = %s"
+        cursor.execute(count_query, (album_id,))
+        total_images = cursor.fetchone()[0]
+        total_pages = (total_images + quantity - 1) // quantity  # Calcula el número total de páginas
+
+        # Consulta para obtener las imágenes de la página actual
         query = """
                     SELECT 
                         path, picture_id, date
                     FROM 
                         picture 
                     WHERE 
-                        album_id= %s
+                        album_id = %s
                     LIMIT %s 
                     OFFSET %s
                 """
         
-        cursor.execute(query,(album_id,quantity, offset))
+        cursor.execute(query, (album_id, quantity, offset))
         all_pictures = cursor.fetchall()
         url_all_pictures = []
+        
         for picture in all_pictures:
-            url_picture = url_for_picture(picture[0]), picture[1], picture[2]
-            
+            url_picture = (url_for_picture(picture[0]), picture[1], picture[2])
             if url_picture:
                 url_all_pictures.append(url_picture)
             else:
                 print("No valido.")
+
         if len(url_all_pictures):
-            return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
+            return jsonify({
+                'status': 'success',
+                'message': str(Status.SUCCESSFULLY_CONSULTED),
+                'response': url_all_pictures,
+                'total_pages': total_pages
+            }), 200
         else:
-            return jsonify({'status': 'success', 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
+            return jsonify({
+                'status': 'success',
+                'message': 'Consulted correctly, but there are no images',
+                'response': url_all_pictures,
+                'total_pages': total_pages
+            }), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
     finally:
         if cursor:

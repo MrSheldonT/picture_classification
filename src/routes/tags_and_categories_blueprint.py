@@ -197,7 +197,7 @@ def create_tag(token_data, original_token):
         cursor.execute(query,(tag_name, category_id))        
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message': Status.SUCCESSFULLY_CREATED, 'tag_name' : tag_name, 'category_id' : category_id}
+        message_enpoint = {'status': 'success', 'message': str(Status.SUCCESSFULLY_CREATED), 'tag_name' : tag_name, 'category_id' : category_id}
 
         return jsonify(message_enpoint), 200
     
