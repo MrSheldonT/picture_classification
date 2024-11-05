@@ -215,6 +215,67 @@ def show_picture_from_album(token_data, original_token):
         if cursor:
             cursor.close()
 
+@pictures_bp.route('/show_picture_from_album_progress',methods=['GET'])
+@token_required
+def show_picture_from_album_progress(token_data, original_token):
+    
+    album_id = request.args.get('album_id', default=1, type=int)
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    max_pictures = request.args.get('max_pictures', default=10, type=int)
+    page = request.args.get('page', default=1, type=int)
+    offset = ( page - 1 ) * max_pictures
+    
+    if not album_id:
+        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
+
+    cursor = None
+    try:    
+        cursor = mysql.connection.cursor()
+        query = """
+                    SELECT 
+                        path, picture_id, date
+                    FROM 
+                        picture 
+                    WHERE 
+                        album_id= %s
+                """
+        
+        params = [album_id]
+        
+        if start_date and end_date:
+            query +=  " AND date BETWEEN %s AND %s"
+            params.extend([start_date, end_date]) 
+
+        query += " ORDER BY date ASC LIMIT %s OFFSET %s"
+        params.extend([max_pictures, offset]) 
+
+        cursor.execute(query,tuple(params))
+        pictures_by_date = {}
+        all_pictures = cursor.fetchall()
+    
+        for picture in all_pictures:
+            path, picture_id, date = picture
+            year_month = date.strftime("%Y-%m")
+            if year_month not in pictures_by_date:
+                pictures_by_date[year_month] = []
+            pictures_by_date[year_month].append({
+                "url": url_for_picture(path),
+                "picture_id": picture_id,
+                "date": date
+            })
+        if pictures_by_date:
+            return jsonify({'status': 'success', 'message': 'Pictures retrieved successfully', 'response': pictures_by_date}), 200
+        else:
+            return jsonify({'status': 'success', 'message': 'No pictures found', 'response': pictures_by_date}), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message' : str(e) }), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+
 @pictures_bp.route('/show_picture_from_location', methods=['GET']) 
 @token_required
 def show_picture_from_location(token_data, original_token):
