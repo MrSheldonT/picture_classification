@@ -5,6 +5,8 @@ from utils.files import allowed_file, picture_to_hash, save_picture, delete_pict
 from utils.database_verification import exist_record_in_table
 from utils.audit import Table, StatusResponse, Transaccion, register_audit
 from utils.message_status import Status
+from datetime import datetime
+
 import os
 
 pictures_bp = Blueprint('pictures', __name__, url_prefix='/pictures')
@@ -24,12 +26,19 @@ def upload_picture(token_data, original_token):
     
     album_id = request.form.get('album_id', type=int)
     category_id = request.form.get('category_id', type=int, default=1)
+    date = request.form.get('date',type=str, default=datetime.today().strftime('%Y-%m-%d'))
     table = "picture"
     parameter = "picture_id"
     
     if not album_id or not category_id:
         return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'category_id': category_id }), 400
-    
+
+    try:
+        date = datetime.fromisoformat(date.replace("Z", "+00:00"))  # Si la fecha está en UTC
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid date format, should be ISO 8601'}), 400
+
+
     if file and allowed_file(file.filename):
         file_content = file.read()
         picture_id = picture_to_hash(file_content)
@@ -46,11 +55,11 @@ def upload_picture(token_data, original_token):
             filepath =  save_picture(file, picture_id, upload_folder)
             query = """
                         INSERT INTO 
-                            picture (picture_id, path, album_id, category_id)
-                        VALUES (%s, %s, %s, %s)
+                            picture (picture_id, path, album_id, category_id,date)
+                        VALUES (%s, %s, %s, %s, %s)
                     """
             
-            cursor.execute(query, (picture_id, filepath, album_id, category_id))
+            cursor.execute(query, (picture_id, filepath, album_id, category_id,date))
             mysql.connection.commit()
             status_response = StatusResponse.SUCCESS
             message_enpoint = {'status': 'success', 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id, 'category_id': category_id}
@@ -234,42 +243,111 @@ def show_picture_from_album(token_data, original_token):
         if cursor:
             cursor.close()
 
-@pictures_bp.route('/show_picture_from_album_progress',methods=['GET'])
+@pictures_bp.route('/show_album_date_range', methods=['GET'])
+@token_required
+def show_album_date_range(token_data, original_token):
+    
+    album_id = request.args.get('album_id', type=int)
+    
+    if not album_id:
+        return jsonify({'status': 'error', 'message': 'Album ID is required', 'album_id': album_id}), 400
+
+    cursor = None
+    try:    
+        cursor = mysql.connection.cursor()
+        
+        # Consulta para obtener las fechas más antigua y más reciente
+        query = """
+                    SELECT 
+                        MIN(date) AS earliest_date,
+                        MAX(date) AS latest_date
+                    FROM 
+                        picture 
+                    WHERE 
+                        album_id = %s
+                """
+        
+        cursor.execute(query, (album_id,))
+        result = cursor.fetchone()
+        
+        if result and result[0] and result[1]:  # Accede a los resultados por índice
+            # Devolvemos la fecha más antigua y la más reciente
+            return jsonify({
+                'status': 'success', 
+                'message': 'Date range retrieved successfully',
+                'earliest_date': result[0],  # earliest_date es el primer campo
+                'latest_date': result[1]      # latest_date es el segundo campo
+            }), 200
+        else:
+            # Caso en que no hay fotos en el álbum
+            return jsonify({
+                'status': 'success', 
+                'message': 'No pictures found for this album', 
+                'earliest_date': None, 
+                'latest_date': None
+            }), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message' : str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+
+
+
+
+
+@pictures_bp.route('/show_picture_from_album_progress', methods=['GET'])
 @token_required
 def show_picture_from_album_progress(token_data, original_token):
-    
     album_id = request.args.get('album_id', default=1, type=int)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     max_pictures = request.args.get('max_pictures', default=10, type=int)
     page = request.args.get('page', default=1, type=int)
-    offset = ( page - 1 ) * max_pictures
+    offset = (page - 1) * max_pictures
     
     if not album_id:
         return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
 
     cursor = None
-    try:    
+    try:
         cursor = mysql.connection.cursor()
+        
+        # Convertir las fechas de string a datetime si se proporcionan
+        if start_date:
+            try:
+                start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            except ValueError:
+                return jsonify({'status': 'error', 'message': 'Invalid start_date format'}), 400
+        
+        if end_date:
+            try:
+                end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+            except ValueError:
+                return jsonify({'status': 'error', 'message': 'Invalid end_date format'}), 400
+        
         query = """
-                    SELECT 
-                        path, picture_id, date
-                    FROM 
-                        picture 
-                    WHERE 
-                        album_id= %s
-                """
+            SELECT 
+                path, picture_id, date
+            FROM 
+                picture 
+            WHERE 
+                album_id = %s
+        """
         
         params = [album_id]
         
+        # Solo añadimos las fechas a la consulta si se proporcionan
         if start_date and end_date:
-            query +=  " AND date BETWEEN %s AND %s"
-            params.extend([start_date, end_date]) 
+            query += " AND date BETWEEN %s AND %s"
+            params.extend([start_date, end_date])
 
         query += " ORDER BY date ASC LIMIT %s OFFSET %s"
-        params.extend([max_pictures, offset]) 
+        params.extend([max_pictures, offset])
 
-        cursor.execute(query,tuple(params))
+        cursor.execute(query, tuple(params))
         pictures_by_date = {}
         all_pictures = cursor.fetchall()
     
@@ -283,17 +361,19 @@ def show_picture_from_album_progress(token_data, original_token):
                 "picture_id": picture_id,
                 "date": date
             })
+        
         if pictures_by_date:
             return jsonify({'status': 'success', 'message': 'Pictures retrieved successfully', 'response': pictures_by_date}), 200
         else:
             return jsonify({'status': 'success', 'message': 'No pictures found', 'response': pictures_by_date}), 200
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
     finally:
         if cursor:
             cursor.close()
+
 
 @pictures_bp.route('/show_picture_from_location', methods=['GET']) 
 @token_required
