@@ -294,6 +294,92 @@ def show_album_date_range(token_data, original_token):
         if cursor:
             cursor.close()
 
+@pictures_bp.route('/show_picture_from_album_pages', methods=['GET'])
+@token_required
+def show_picture_from_album_pages(token_data, original_token):
+    album_id = request.args.get('album_id', default=1, type=int)
+    max_pictures_per_group = request.args.get('max_pictures_per_group', default=6, type=int)  # Limitar imágenes por grupo
+    max_groups = request.args.get('max_groups', default=6, type=int)  # Limitar grupos (por fecha)
+    page = request.args.get('page', default=1, type=int)
+    
+    # Definir el número de imágenes por página
+    offset = (page - 1) * max_groups  # Calcular el desplazamiento para grupos
+
+    if not album_id:
+        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
+
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        
+        # Consulta para obtener las imágenes del álbum ordenadas por fecha
+        query = """
+            SELECT 
+                path, picture_id, date
+            FROM 
+                picture 
+            WHERE 
+                album_id = %s
+            ORDER BY 
+                date DESC
+        """
+        
+        # Ejecutar la consulta para obtener todas las imágenes
+        cursor.execute(query, (album_id,))
+        all_pictures = cursor.fetchall()
+
+        # Agrupar las imágenes por mes y año (YYYY-MM)
+        pictures_by_date = {}
+        for picture in all_pictures:
+            path, picture_id, date = picture
+            # Formato año-mes (YYYY-MM) para la agrupación
+            year_month = date.strftime("%Y-%m")  # Usamos solo año y mes para agrupar
+            if year_month not in pictures_by_date:
+                pictures_by_date[year_month] = []
+            pictures_by_date[year_month].append({
+                "url": url_for_picture(path),
+                "picture_id": picture_id,
+                "date": date
+            })
+
+        # Limitar el número de imágenes dentro de cada grupo de fechas
+        for date, pictures in pictures_by_date.items():
+            pictures_by_date[date] = pictures[:max_pictures_per_group]  # Limitamos a max_pictures_per_group imágenes por grupo de fecha
+
+        # Convertir el diccionario a una lista de grupos de imágenes (por fecha completa)
+        grouped_pictures = [{"date": date, "pictures": pictures} for date, pictures in pictures_by_date.items()]
+
+        # Ordenar los grupos por fecha (año-mes) en orden descendente
+        grouped_pictures.sort(key=lambda x: x["date"], reverse=True)
+
+        # Limitar el número de grupos que se devuelven
+        grouped_pictures = grouped_pictures[offset:offset + max_groups]  # Limitamos el número de grupos devueltos para la página
+
+        # Calcular la cantidad total de páginas necesarias
+        total_groups = len(pictures_by_date)  # Total de grupos sin limitación
+        total_pages = (total_groups + max_groups - 1) // max_groups  # Redondear hacia arriba
+
+        # Obtener la sección de grupos de imágenes correspondiente a la página solicitada
+        page_groups = grouped_pictures
+
+        # Retornar la respuesta con las imágenes agrupadas por fecha en forma de matriz
+        return jsonify({
+            'status': 'success',
+            'message': 'Pictures retrieved successfully',
+            'response': page_groups,
+            'total_pages': total_pages,
+            'current_page': page
+        }), 200
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+
+
+
 
 
 
