@@ -88,7 +88,7 @@ def show_users(token_data, original_token):
         cursor = mysql.connection.cursor()
         query = """
                     SELECT 
-                        user_id, name, email
+                        user_id, name, email, confirmed_on
                     FROM 
                         user
                     LIMIT %s
@@ -215,22 +215,24 @@ def login_user():
                     FROM 
                         user
                     WHERE 
-                        name = %s OR email = %s
+                        (name = %s OR email = %s) AND confirmed_on = 1 
                 """
         cursor.execute(query, (user_name, user_email))
         user = cursor.fetchone()
 
+        if user:
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Account denied, please contact administration for permission'})
+                                                                            
         if user and bcrypt.check_password_hash(user[2], user_password):
-            print("YAA")
             token = jwt.encode({
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
             message_enpoint = {'status': 'success', 'message' : 'Successful login', 'token' : token}
-            print("YAA")
             status_response = StatusResponse.SUCCESS
-            print("YAA")
+
             return jsonify(message_enpoint), 200
+        
         message_enpoint = {'status': 'error', 'message': 'Incorrect username or password'}
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 401

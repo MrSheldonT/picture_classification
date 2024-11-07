@@ -48,7 +48,7 @@ CREATE TABLE user (
     email VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(50) UNIQUE NOT NULL,
     password CHAR(60) NOT NULL,
-    confirmed_on DATETIME DEFAULT NULL
+    confirmed_on  TINYINT(1) NOT NULL
 );
 
 CREATE TABLE rating (
