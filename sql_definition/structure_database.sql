@@ -29,9 +29,7 @@ CREATE TABLE picture (
     picture_id CHAR(64) PRIMARY KEY,
     path VARCHAR(255) NOT NULL,
     date DATE NOT NULL DEFAULT (CURRENT_DATE),
-    album_id INT NOT NULL,
-    category_id INT NOT NULL DEFAULT 1
-
+    album_id INT NOT NULL
 );
 
 CREATE TABLE category (
@@ -54,12 +52,12 @@ CREATE TABLE user (
 );
 
 CREATE TABLE rating (
+    rating_id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
     date DATE NOT NULL DEFAULT (CURRENT_DATE),
     score DECIMAL(5,2) NOT NULL,
     picture_id CHAR(64) NOT NULL, 
     tag_id INT,
-    user_id INT,
-    PRIMARY KEY(picture_id, tag_id, user_id)
+    user_id INT
 );
 
 CREATE TABLE audit (
@@ -92,8 +90,7 @@ ALTER TABLE
     album ADD FOREIGN KEY (location_id) REFERENCES location(location_id) ON DELETE CASCADE;
 
 ALTER TABLE 
-    picture ADD FOREIGN KEY (album_id) REFERENCES album(album_id) ON DELETE CASCADE
-    , ADD FOREIGN KEY (category_id) REFERENCES category(category_id) ON DELETE SET DEFAULT ;
+    picture ADD FOREIGN KEY (album_id) REFERENCES album(album_id) ON DELETE CASCADE;
 
 ALTER TABLE 
     tag ADD FOREIGN KEY (category_id) REFERENCES category(category_id) ON DELETE CASCADE;

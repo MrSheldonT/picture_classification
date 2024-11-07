@@ -6,8 +6,8 @@ class Config:
     MYSQL_PASSWORD = ''
     SECRET_KEY = os.environ.get('SECRET_KEY')
     
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    #MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    #MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_SERVER = 'smtp.gmail.com'
     MAIL_PORT = 465
     MAIL_USE_TLS = False

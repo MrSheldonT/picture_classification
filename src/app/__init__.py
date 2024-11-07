@@ -1,6 +1,5 @@
-#from flask import Flask
 from flask import Flask
-from app.extensions import mysql, mail, bcrypt
+from app.extensions import mysql, bcrypt
 from src.app.config import Config
 import logging
 from flask_cors import CORS
@@ -14,9 +13,7 @@ def create_app():
     
     mysql.init_app(app)
     bcrypt.init_app(app)
-    mail.init_app(app)
     CORS(app)
-    #from src.routes.audit_blueprint import 
     from routes.picture_blueprint import pictures_bp
     from src.routes.ratings_blueprint import ratings_bp
     from src.routes.tags_and_categories_blueprint import tags_and_categories_bp

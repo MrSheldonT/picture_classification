@@ -49,7 +49,6 @@ def create_rating(token_data, original_token):
         mysql.connection.commit()
         select_query = """
             SELECT rating_id FROM rating WHERE picture_id=%s AND user_id=%s AND tag_id=%s
-
         """
         cursor.execute(select_query,(picture_id, token_data['user_id'],tag_id))
         response2 = cursor.fetchall()
