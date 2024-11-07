@@ -31,12 +31,12 @@ def upload_picture(token_data, original_token):
     parameter = "picture_id"
     
     if not album_id or not category_id:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'category_id': category_id }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'category_id': category_id }), 400
 
     try:
         date = datetime.fromisoformat(date.replace("Z", "+00:00"))  # Si la fecha está en UTC
     except ValueError:
-        return jsonify({'status': 'error', 'message': 'Invalid date format, should be ISO 8601'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid date format, should be ISO 8601'}), 400
 
 
     if file and allowed_file(file.filename):
@@ -45,7 +45,7 @@ def upload_picture(token_data, original_token):
         file.seek(0)
 
         if exist_record_in_table(table, parameter,picture_id):
-            return jsonify({'status' : 'error', 'message' : 'Image alredy exists'}), 409
+            return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'Image alredy exists'}), 409
 
         cursor = mysql.connection.cursor()
         upload_folder = current_app.config['UPLOAD_FOLDER']    
@@ -62,13 +62,13 @@ def upload_picture(token_data, original_token):
             cursor.execute(query, (picture_id, filepath, album_id, category_id,date))
             mysql.connection.commit()
             status_response = StatusResponse.SUCCESS
-            message_enpoint = {'status': 'success', 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id, 'category_id': category_id}
+            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id, 'category_id': category_id}
             return jsonify(message_enpoint), 200
         
         except Exception as e:
             delete_picture_file(file, picture_id, upload_folder)
             status_response = StatusResponse.ERROR
-            message_enpoint = {'status': 'error', 'message': str(e) }
+            message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
             return jsonify(message_enpoint), 400 
 
         finally:
@@ -84,7 +84,7 @@ def upload_picture(token_data, original_token):
                 entity=Table.picture
             )
     else:
-        return jsonify({'status': 'error', 'message':'File type not allowed' , 'file' : file.filename }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message':'File type not allowed' , 'file' : file.filename }), 400
 
 @pictures_bp.route('/uploads/<filename>')
 def serve_image(filename):
@@ -98,7 +98,7 @@ def render_picture(token_data, original_token):
     picture_id = request.args.get('picture_id', type=str)
     
     if not picture_id:
-        return jsonify({'status': 'error', 'message': 'No image entered'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'No image entered'}), 400
 
     cursor = None
     try:
@@ -119,14 +119,14 @@ def render_picture(token_data, original_token):
             url_picture = url_for_picture(picture[0]), picture[1], picture[2]
             print(url_picture)
             if url_picture:
-                return jsonify({'status': 'success', 'picture_url': url_picture}), 200
+                return jsonify({'status': StatusResponse.SUCCESS.value, 'picture_url': url_picture}), 200
             else:
-                return jsonify({'status': 'error', 'message': 'File not found on the server'}), 404
+                return jsonify({'status': StatusResponse.ERROR.value, 'message': 'File not found on the server'}), 404
         else:
-            return jsonify({'status': 'error', 'message': 'Image with the provided ID was not found'}), 404
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Image with the provided ID was not found'}), 404
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
     
     finally:
         if cursor:
@@ -165,11 +165,11 @@ def show_all_pictures(token_data, original_token):
             else:
                 print("No valido.")
         if len(url_all_pictures):
-            return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
         else:
-            return jsonify({'status': 'success', 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
 
     finally:
         if cursor:
@@ -186,7 +186,7 @@ def show_picture_from_album(token_data, original_token):
     offset = (page - 1) * quantity
     
     if not album_id:
-        return jsonify({'status': 'error', 'message': str(Status.NOT_ENTERED), 'album_id': album_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(Status.NOT_ENTERED), 'album_id': album_id})
 
     cursor = None
     try:    
@@ -223,21 +223,21 @@ def show_picture_from_album(token_data, original_token):
 
         if len(url_all_pictures):
             return jsonify({
-                'status': 'success',
+                'status': StatusResponse.SUCCESS.value,
                 'message': str(Status.SUCCESSFULLY_CONSULTED),
                 'response': url_all_pictures,
                 'total_pages': total_pages
             }), 200
         else:
             return jsonify({
-                'status': 'success',
+                'status': StatusResponse.SUCCESS.value,
                 'message': 'Consulted correctly, but there are no images',
                 'response': url_all_pictures,
                 'total_pages': total_pages
             }), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
 
     finally:
         if cursor:
@@ -250,7 +250,7 @@ def show_album_date_range(token_data, original_token):
     album_id = request.args.get('album_id', type=int)
     
     if not album_id:
-        return jsonify({'status': 'error', 'message': 'Album ID is required', 'album_id': album_id}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Album ID is required', 'album_id': album_id}), 400
 
     cursor = None
     try:    
@@ -273,7 +273,7 @@ def show_album_date_range(token_data, original_token):
         if result and result[0] and result[1]:  # Accede a los resultados por índice
             # Devolvemos la fecha más antigua y la más reciente
             return jsonify({
-                'status': 'success', 
+                'status': StatusResponse.SUCCESS.value, 
                 'message': 'Date range retrieved successfully',
                 'earliest_date': result[0],  # earliest_date es el primer campo
                 'latest_date': result[1]      # latest_date es el segundo campo
@@ -281,14 +281,14 @@ def show_album_date_range(token_data, original_token):
         else:
             # Caso en que no hay fotos en el álbum
             return jsonify({
-                'status': 'success', 
+                'status': StatusResponse.SUCCESS.value, 
                 'message': 'No pictures found for this album', 
                 'earliest_date': None, 
                 'latest_date': None
             }), 200
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e)}), 500
 
     finally:
         if cursor:
@@ -306,7 +306,7 @@ def show_picture_from_album_pages(token_data, original_token):
     offset = (page - 1) * max_groups  # Calcular el desplazamiento para grupos
 
     if not album_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
 
     cursor = None
     try:
@@ -364,7 +364,7 @@ def show_picture_from_album_pages(token_data, original_token):
 
         # Retornar la respuesta con las imágenes agrupadas por fecha en forma de matriz
         return jsonify({
-            'status': 'success',
+            'status': StatusResponse.SUCCESS.value,
             'message': 'Pictures retrieved successfully',
             'response': page_groups,
             'total_pages': total_pages,
@@ -372,7 +372,7 @@ def show_picture_from_album_pages(token_data, original_token):
         }), 200
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
 
     finally:
         if cursor:
@@ -395,7 +395,7 @@ def show_picture_from_album_progress(token_data, original_token):
     offset = (page - 1) * max_pictures
     
     if not album_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
 
     cursor = None
     try:
@@ -406,13 +406,13 @@ def show_picture_from_album_progress(token_data, original_token):
             try:
                 start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
             except ValueError:
-                return jsonify({'status': 'error', 'message': 'Invalid start_date format'}), 400
+                return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid start_date format'}), 400
         
         if end_date:
             try:
                 end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
             except ValueError:
-                return jsonify({'status': 'error', 'message': 'Invalid end_date format'}), 400
+                return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid end_date format'}), 400
         
         query = """
             SELECT 
@@ -449,12 +449,12 @@ def show_picture_from_album_progress(token_data, original_token):
             })
         
         if pictures_by_date:
-            return jsonify({'status': 'success', 'message': 'Pictures retrieved successfully', 'response': pictures_by_date}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'Pictures retrieved successfully', 'response': pictures_by_date}), 200
         else:
-            return jsonify({'status': 'success', 'message': 'No pictures found', 'response': pictures_by_date}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'No pictures found', 'response': pictures_by_date}), 200
 
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
 
     finally:
         if cursor:
@@ -471,7 +471,7 @@ def show_picture_from_location(token_data, original_token):
     offset = ( page - 1 ) * quantity
     
     if not location_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'location_id': location_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'location_id': location_id})
     try:
         cursor = mysql.connection.cursor()
         query = """
@@ -497,12 +497,12 @@ def show_picture_from_location(token_data, original_token):
             else:
                 print("No valido.")
         if len(url_all_pictures):
-            return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
         else:
-            return jsonify({'status': 'success', 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
     
     finally:
         if cursor:
@@ -518,7 +518,7 @@ def show_picture_from_project(token_data, original_token):
     offset = ( page - 1 ) * quantity
     
     if not project_id:
-        return jsonify({'status': 'error', 'message': 'Parameters not entered', 'project_id': project_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Parameters not entered', 'project_id': project_id})
 
     cursor = None
     try:
@@ -552,12 +552,12 @@ def show_picture_from_project(token_data, original_token):
             else:
                 print("No valido.")
         if len(url_all_pictures):
-            return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
         else:
-            return jsonify({'status': 'success', 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
+            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e)}), 500
     
     finally:
         if cursor:
@@ -577,10 +577,10 @@ def delete_picture(token_data, original_token):
     message_enpoint = ""
 
     if not picture_id:
-        return jsonify({'status' : 'error', 'message': 'Parameters not entered' }), 400
+        return jsonify({'status' : StatusResponse.ERROR.value, 'message': 'Parameters not entered' }), 400
 
     if not exist_record_in_table(table, parameter, picture_id):
-        return jsonify({'status': 'error', 'message': 'The image was not found'})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The image was not found'})
     
     cursor = None
     try:    
@@ -597,7 +597,7 @@ def delete_picture(token_data, original_token):
 
         path = cursor.fetchone()[0]
         if path is None:
-            message_enpoint = {'status': 'error', 'message' : 'The requested image was not found, please check again'}
+            message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : 'The requested image was not found, please check again'}
             return jsonify(message_enpoint), 404
 
         if path:
@@ -614,18 +614,18 @@ def delete_picture(token_data, original_token):
                 os.remove(normal_path)
         
             else:
-                message_enpoint = {'status': 'error' , 'message': 'The requested image was not found in the file system, please check again.', 'path': normal_path}
+                message_enpoint = {'status': StatusResponse.ERROR.value , 'message': 'The requested image was not found in the file system, please check again.', 'path': normal_path}
                 return jsonify(message_enpoint), 404
         else:
-            return jsonify({'status' : 'error', 'message' : 'The requested image was not found in the database, please check again.'}), 404
+            return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'The requested image was not found in the database, please check again.'}), 404
        
-        message_enpoint = {'status' : 'success', 'message' : 'Correctly deleted', 'picture_id': picture_id}
+        message_enpoint = {'status' : StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted', 'picture_id': picture_id}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
 
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status' : 'error' , 'message' : str(e)}
+        message_enpoint = {'status' : StatusResponse.ERROR.value , 'message' : str(e)}
         return jsonify(message_enpoint), 500
     
     finally:

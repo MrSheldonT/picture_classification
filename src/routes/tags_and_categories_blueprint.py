@@ -18,7 +18,7 @@ def create_category(token_data, original_token):
     message_enpoint = ""
     
     if not category_name:
-        return jsonify({'status': 'error', 'message':  Status.NOT_ENTERED.value, 'category_name': category_name }), 400   
+        return jsonify({'status': StatusResponse.ERROR.value, 'message':  Status.NOT_ENTERED.value, 'category_name': category_name }), 400   
     
     cursor = None
     try:
@@ -30,12 +30,12 @@ def create_category(token_data, original_token):
                 """
         cursor.execute(query, (category_name,))
         mysql.connection.commit()
-        message_enpoint = {'status': 'success', 'message': 'Record was saved correctly', 'category_name' : category_name}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'category_name' : category_name}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
     
     except Exception as e:
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 500
     
@@ -71,10 +71,10 @@ def show_categories(token_data, original_token):
                 """
         cursor.execute(query, (quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message' : 'Consulted correctly', 'response' : response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly', 'response' : response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
 
     finally:
         if cursor:
@@ -93,7 +93,7 @@ def update_category(token_data, original_token):
         return jsonify({'message' : Status.NOT_ENTERED.value, 'category_id' : category_id, 'category_name' : category_name}), 400
     
     if not exist_record_in_table("category", "name", category_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -109,12 +109,12 @@ def update_category(token_data, original_token):
         cursor.execute(query,(category_name, category_id))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : 'Successfully updated'}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successfully updated'}
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         return jsonify(message_enpoint), 500
 
     finally:
@@ -143,7 +143,7 @@ def delete_category(token_data, original_token):
         return jsonify({'message' : Status.NOT_ENTERED.value, 'category_id' : category_id}), 400
     
     if not exist_record_in_table(table, parameter, category_id):
-        return jsonify({'status': 'error', 'message': 'The requested record was not found, please check again.'}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The requested record was not found, please check again.'}), 404
     
     cursor = None
     try:
@@ -157,12 +157,12 @@ def delete_category(token_data, original_token):
         cursor.execute(query, (category_id, ))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : 'Correctly deleted'}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted'}
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         return jsonify(message_enpoint), 500
     
     finally:
@@ -187,7 +187,7 @@ def create_tag(token_data, original_token):
     message_enpoint = ""
 
     if not tag_name or not category_id:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'tag_name' : tag_name, 'category_id' : category_id }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'tag_name' : tag_name, 'category_id' : category_id }), 400
     
     cursor = None
     try:
@@ -197,13 +197,13 @@ def create_tag(token_data, original_token):
         cursor.execute(query,(tag_name, category_id))        
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message': str(Status.SUCCESSFULLY_CREATED), 'tag_name' : tag_name, 'category_id' : category_id}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': str(Status.SUCCESSFULLY_CREATED), 'tag_name' : tag_name, 'category_id' : category_id}
 
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
 
         return jsonify(message_enpoint), 500
     
@@ -232,10 +232,10 @@ def update_tag(token_data, original_token):
 
 
     if not tag_name or not category_id or not tag_id:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'tag_id': tag_id ,'tag_name' : tag_name, 'category_id' : category_id }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'tag_id': tag_id ,'tag_name' : tag_name, 'category_id' : category_id }), 400
     
     if not exist_record_in_table("tag", "tag_id", tag_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
 
     cursor = None
     try:
@@ -250,13 +250,13 @@ def update_tag(token_data, original_token):
                 """   
         cursor.execute(query,(tag_name, category_id, tag_id))        
         mysql.connection.commit()
-        message_enpoint = {'status': 'success', 'message': Status.SUCCESSFULLY_UPDATED.value, 'tag_name' : tag_name, 'category_id' : category_id}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': Status.SUCCESSFULLY_UPDATED.value, 'tag_name' : tag_name, 'category_id' : category_id}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
         return jsonify(message_enpoint), 500
     
     finally:
@@ -281,7 +281,7 @@ def show_tags(token_data, original_token):
     offset = ( page - 1 ) * quantity
 
     if not category_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'category_id': category_id}),400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'category_id': category_id}),400
     
     cursor = None
     try:
@@ -298,10 +298,10 @@ def show_tags(token_data, original_token):
                 """
         cursor.execute(query, (category_id, quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message' : 'Consulted correctly', 'response' : response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly', 'response' : response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
 
     finally:
         if cursor:
@@ -314,7 +314,7 @@ def show_tags_from_picture(token_data, original_token):
     picture_id = request.args.get('picture_id', type=str)
 
     if not picture_id:
-            return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'picture_id': picture_id}), 400
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'picture_id': picture_id}), 400
 
     cursor = None
     try:
@@ -333,9 +333,9 @@ def show_tags_from_picture(token_data, original_token):
                 """
         cursor.execute(query, (picture_id, ))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message': response})
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': response})
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
 
 
 @tags_and_categories_bp.route('/delete_tag', methods=['DELETE'])
@@ -348,10 +348,10 @@ def delete_tag(token_data, original_token):
     message_enpoint = ""
 
     if not tag_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'tag_id': tag_id}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'tag_id': tag_id}), 400
     
     if not exist_record_in_table(table, parameter, tag_id):
-        return jsonify({'status': 'error', 'message': 'The requested record was not found, please check again.'}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The requested record was not found, please check again.'}), 404
     
     cursor = None
     try:
@@ -366,12 +366,12 @@ def delete_tag(token_data, original_token):
         mysql.connection.commit()
         
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : 'Correctly deleted', 'tag_id': tag_id}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted', 'tag_id': tag_id}
         return jsonify(message_enpoint), 200
 
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
 
         return jsonify(message_enpoint), 500
     

@@ -18,10 +18,10 @@ def create_rating(token_data, original_token):
     status_response = ""
     message_enpoint = ""
     if not picture_id or not token_data['user_id'] or not rating_date or not tag_id:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'rating_score' : rating_score, 'date' : rating_date, 'tag_id': tag_id })
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'rating_score' : rating_score, 'date' : rating_date, 'tag_id': tag_id })
     
     if rating_score < 0 and rating_score > 3:
-        return jsonify({'status': 'error', 'message': 'value for score is invalid'})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'value for score is invalid'})
 
     cursor = None
     try:
@@ -38,7 +38,7 @@ def create_rating(token_data, original_token):
         response = cursor.fetchone()
         print(response)
         if response is not None:
-            return jsonify({'status': 'error', 'message': 'The rating already exists'})
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The rating already exists'})
         
         query = """
                     INSERT INTO 
@@ -53,13 +53,13 @@ def create_rating(token_data, original_token):
         cursor.execute(select_query,(picture_id, token_data['user_id'],tag_id))
         response2 = cursor.fetchall()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id,'rating_id':response2[0][0] }
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id,'rating_id':response2[0][0] }
 
         return jsonify(message_enpoint), 201
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
 
         return jsonify(message_enpoint), 500
     
@@ -86,7 +86,7 @@ def show_ratings_from_picture(token_data, original_token):
     offset = (page - 1) * quantity 
 
     if not picture_id:
-        return jsonify({'status' : 'error' , 'message' : str(Status.NOT_ENTERED), 'picture_id' : picture_id }), 400
+        return jsonify({'status' : StatusResponse.ERROR.value , 'message' : str(Status.NOT_ENTERED), 'picture_id' : picture_id }), 400
     
     cursor = None
     try:
@@ -106,10 +106,10 @@ def show_ratings_from_picture(token_data, original_token):
                 """
         cursor.execute(query, (picture_id, quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success',  'message' : 'Consulted correctly', 'response' : response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value,  'message' : 'Consulted correctly', 'response' : response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error',  'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value,  'message' : str(e) }), 500
     finally:
         if cursor:
             cursor.close()
@@ -126,7 +126,7 @@ def show_rating_from_user(token_data, original_token):
     offset = (page - 1) * quantity 
     
     if not all([user_id,category_id,picture_id]):
-        return jsonify({'status': 'error', 'message': str(Status.NOT_ENTERED), 'user_id': user_id,'category_id':category_id,'picture_id':picture_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(Status.NOT_ENTERED), 'user_id': user_id,'category_id':category_id,'picture_id':picture_id})
     
     cursor = None
     try:
@@ -147,10 +147,10 @@ def show_rating_from_user(token_data, original_token):
                 """
         cursor.execute(query, (user_id,picture_id,category_id, quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message': 'Consulted correctly', 'response': response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'Consulted correctly', 'response': response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
     
     finally:        
         if cursor:
@@ -167,10 +167,10 @@ def update_rating(token_data, original_token):
     message_enpoint = ""
 
     if not picture_id or not rating_date or not tag_id:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'tag_id':tag_id,'date' : rating_date }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'tag_id':tag_id,'date' : rating_date }), 400
     
     if rating_score < 0 and rating_score > 3:
-        return jsonify({'status': 'error', 'message': 'value for score is invalid'})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'value for score is invalid'})
 
     cursor = None
     try:
@@ -186,13 +186,13 @@ def update_rating(token_data, original_token):
         cursor.execute(query, (rating_score, rating_date, picture_id, token_data['user_id'], tag_id))    
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_UPDATED.value}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_UPDATED.value}
 
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         return jsonify(message_enpoint), 500
     
     finally:
@@ -215,10 +215,10 @@ def delete_rating(token_data, original_token):
     parameter = 'rating_id'
 
     if not rating_id:
-         return jsonify({'status': 'error', 'message': rating_id}), 400
+         return jsonify({'status': StatusResponse.ERROR.value, 'message': rating_id}), 400
 
     if not exist_record_in_table(table, parameter, rating_id):
-        return jsonify({'status': 'error', 'message': 'The requested record was not found, please check again.'}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The requested record was not found, please check again.'}), 404
 
     cursor = None
     try:
@@ -231,10 +231,10 @@ def delete_rating(token_data, original_token):
                 """
         cursor.execute(query, (rating_id, ))
         mysql.connection.commit()
-        return jsonify({'status': 'success', 'message' : 'Correctly deleted'}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted'}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
 
     finally:
         if cursor:
