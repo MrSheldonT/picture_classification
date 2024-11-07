@@ -1,8 +1,7 @@
 import jwt
 from datetime import datetime, timedelta
-from flask_mail import Message
 from flask import Blueprint, jsonify, request, current_app, url_for
-from app.extensions import mysql, bcrypt, mail
+from app.extensions import mysql, bcrypt
 from src.utils.database_verification import exist_record_in_table
 from src.utils.validate_data import valid_email, valid_password, valid_user
 from src.utils.token_validation import token_required
@@ -267,7 +266,7 @@ def send_verification_email(user_email):
         <p>Gracias por registrarte. Por favor, confirma tu cuenta haciendo clic en el enlace:</p>
         <p><a href="{confirm_url}">Confirmar mi cuenta</a></p>
         '''
-        msg = Message(subject, sender=current_app.config['MAIL_USERNAME'], recipients=[user_email], html=html)
-        mail.send(msg)
+        #msg = Message(subject, sender=current_app.config['MAIL_USERNAME'], recipients=[user_email], html=html)
+        #mail.send(msg)
     except Exception as e:
         print(str(e))
