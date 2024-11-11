@@ -22,10 +22,10 @@ def create_project(token_data, original_token):
     status_response = ""
 
     if not project_name or not project_description or not project_date:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'project_name' : project_name, 'project_description' : project_description, 'project_date' : project_date}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'project_name' : project_name, 'project_description' : project_description, 'project_date' : project_date}), 400
 
     if exist_record_in_table(table, parameter, project_name):
-        return jsonify({'status': 'error', 'message': 'The project name you are trying to register already exists!'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The project name you are trying to register already exists!'}), 409
 
     cursor = None
     try:
@@ -37,17 +37,17 @@ def create_project(token_data, original_token):
                 """
         cursor.execute(query,(project_name, project_description, project_date))
         mysql.connection.commit()
-        message_enpoint = {'status': 'success', 'message': 'The project was saved correctly', 'project_name' : project_name, 'project_description' : project_description, 'project_date' : project_date}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'The project was saved correctly', 'project_name' : project_name, 'project_description' : project_description, 'project_date' : project_date}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
 
     except ValueError as ve:
-        message_enpoint = {'status': 'error', 'message': 'Incorrect date format', 'error': str(ve)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect date format', StatusResponse.ERROR.value: str(ve)}
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 400
     
     except Exception as e:
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 500
 
@@ -86,10 +86,10 @@ def show_projects(token_data, original_token):
         cursor.execute(query,(quantity, offset))
         response = cursor.fetchall()
         
-        return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
     
     finally:
         if cursor:
@@ -109,13 +109,13 @@ def update_project(token_data, original_token):
     parameter = "name"
 
     if project_date is None:
-        return jsonify({'status': 'error', 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
     if not project_id or not project_name or    not project_description or not project_date:
         return jsonify({'message' : Status.NOT_ENTERED.value, 'project_id' : project_id, 'project_name' : project_name, 'project_description' : project_description, 'project_date' : project_date}), 400
 
     if exist_record_in_table(table, parameter, project_name):
-        return jsonify({'status': 'error', 'message': 'The project name you are trying to register already exists!'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The project name you are trying to register already exists!'}), 409
 
     cursor = None
     try:
@@ -131,13 +131,13 @@ def update_project(token_data, original_token):
         cursor.execute(query,(project_name, project_description, project_date, project_id))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_UPDATED.value}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_UPDATED.value}
 
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
 
         return jsonify(message_enpoint), 500
     
@@ -164,10 +164,10 @@ def delete_project(token_data, original_token):
     message_enpoint = ""
 
     if not project_id:
-         return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'project_id' : project_id}), 400
+         return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'project_id' : project_id}), 400
     
     if  exist_record_in_table(table, parameter, project_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -182,13 +182,13 @@ def delete_project(token_data, original_token):
         cursor.execute(query, (project_id,))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_DELETED.value, 'project_id': project_id}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_DELETED.value, 'project_id': project_id}
 
         return jsonify(message_enpoint), 200                                                                    
 
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
 
         return jsonify(message_enpoint), 500
     
@@ -217,10 +217,10 @@ def create_location(token_data, original_token):
     message_enpoint = ""
 
     if exist_record_in_table(table, parameter, location_name):
-        return jsonify({'status': 'error', 'message': 'The location name you are trying to register already exists!'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The location name you are trying to register already exists!'}), 409
 
     if not exist_record_in_table("project", "project_id", project_id):
-        return jsonify({'status': 'error', 'message': 'The project where you are trying to register the location does not exist!'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The project where you are trying to register the location does not exist!'}), 409
     
     cursor = None
     try:
@@ -232,13 +232,13 @@ def create_location(token_data, original_token):
         cursor.execute(query,(location_name, location_coordinates, project_id))   
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status' : 'success', 'message': 'Record was saved correctly', 'location_name' : location_name, 'location_coordinates':location_coordinates, 'project_id':project_id}
+        message_enpoint = {'status' : StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'location_name' : location_name, 'location_coordinates':location_coordinates, 'project_id':project_id}
 
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status' : 'error', 'message': str(e) }
+        message_enpoint = {'status' : StatusResponse.ERROR.value, 'message': str(e) }
 
         return jsonify(message_enpoint), 500
     
@@ -264,7 +264,7 @@ def show_locations(token_data, original_token):
     offset = (page - 1) * quantity
 
     if not project_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'project_id': project_id})
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'project_id': project_id})
 
     cursor = None
     try:
@@ -281,10 +281,10 @@ def show_locations(token_data, original_token):
                 """
         cursor.execute(query, (project_id, quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message': Status.SUCCESSFULLY_CONSULTED.value, 'response': response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': Status.SUCCESSFULLY_CONSULTED.value, 'response': response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
     
     finally:
         if cursor:
@@ -307,7 +307,7 @@ def update_location(token_data, original_token):
         return jsonify({'message' : Status.NOT_ENTERED.value, 'project_id': project_id, 'location_name' : location_name, 'location_coordinates' : location_coordinates, 'location_id': location_id}), 400
    
     if not exist_record_in_table(table, parameter, location_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -323,13 +323,13 @@ def update_location(token_data, original_token):
         cursor.execute(query,(location_name, location_coordinates, project_id, location_id ))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_UPDATED.value}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_UPDATED.value}
     
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
     
         return jsonify(message_enpoint), 500
     
@@ -355,10 +355,10 @@ def delete_location(token_data, original_token):
     message_enpoint = ""
 
     if not location_id:
-         return jsonify({'status': 'error', 'message' : ' Parameters not entered', 'location_id' : location_id}), 400
+         return jsonify({'status': StatusResponse.ERROR.value, 'message' : ' Parameters not entered', 'location_id' : location_id}), 400
     
     if not exist_record_in_table(table, parameter, location_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -372,13 +372,13 @@ def delete_location(token_data, original_token):
         cursor.execute(query, (location_id, ))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_DELETED.value}                                  
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_DELETED.value}                                  
         
         return jsonify(message_enpoint), 200
 
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         return jsonify(message_enpoint), 500
     
     finally:
@@ -407,10 +407,10 @@ def create_album(token_data, original_token):
     message_enpoint = ""
 
     if not location_id or not album_name or not album_date:
-        return jsonify({'status' : 'error', 'message' : Status.NOT_ENTERED.value, 'location_id' : location_id, 'album_name' : album_name, 'album_date' : album_date}), 400
+        return jsonify({'status' : StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'location_id' : location_id, 'album_name' : album_name, 'album_date' : album_date}), 400
     
     if exist_record_in_table(table, parameter, album_name):
-        return jsonify({'status': 'error', 'message': 'The album name you are trying to register already exists!'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The album name you are trying to register already exists!'}), 409
     
     cursor = None
     try:
@@ -422,13 +422,13 @@ def create_album(token_data, original_token):
         cursor.execute(query, (album_name, album_date, location_id))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status' : 'success', 'message': 'Record was saved correctly',  'location_id' : location_id, 'album_name' : album_name, 'album_date' : album_date }
+        message_enpoint = {'status' : StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly',  'location_id' : location_id, 'album_name' : album_name, 'album_date' : album_date }
 
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status' : 'error', 'message': str(e)}
+        message_enpoint = {'status' : StatusResponse.ERROR.value, 'message': str(e)}
         return jsonify(message_enpoint), 500
     
     finally:
@@ -453,7 +453,7 @@ def show_albums(token_data, original_token):
     offset = ( page - 1 ) * quantity
 
     if not location_id:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'location_id': location_id}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'location_id': location_id}), 400
 
     cursor = None
     try:
@@ -470,10 +470,10 @@ def show_albums(token_data, original_token):
                 """
         cursor.execute(query, (location_id, quantity, offset))
         response = cursor.fetchall()
-        return jsonify({'status': 'success', 'message' : Status.SUCCESSFULLY_CREATED.value, 'response' : response}), 200
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CREATED.value, 'response' : response}), 200
     
     except Exception as e:
-        return jsonify({'status': 'error', 'message' : str(e) }), 500
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
     
     finally:
         if cursor:
@@ -493,10 +493,10 @@ def update_album(token_data, original_token):
     message_enpoint = ""
 
     if not album_id or not album_name or not location_id or not album_date:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'album_name' : album_name, 'location_id' : location_id, 'album_date' : album_date}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'album_name' : album_name, 'location_id' : location_id, 'album_date' : album_date}), 400
     
     if not exist_record_in_table(table, parameter, album_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -512,13 +512,13 @@ def update_album(token_data, original_token):
         cursor.execute(query,(album_name, album_date, location_id, album_id))
         mysql.connection.commit()
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_UPDATED.value}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_UPDATED.value}
         
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         return jsonify(message_enpoint), 500
 
     finally:
@@ -546,7 +546,7 @@ def delete_album(token_data, original_token):
             return jsonify({'status': 'suerrorccess', 'message' : ' Parameters not entered', 'album_id' : album_id}), 400
     
     if not exist_record_in_table(table, parameter, album_id):
-        return jsonify({'status': 'error', 'message' : Status.RECORD_NOT_FOUND.value}), 404
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
     try:
@@ -561,13 +561,13 @@ def delete_album(token_data, original_token):
         mysql.connection.commit()
 
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message' : Status.SUCCESSFULLY_DELETED.value}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_DELETED.value}
         
         return jsonify(message_enpoint), 200
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         
         return jsonify(message_enpoint), 500
     

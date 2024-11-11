@@ -21,25 +21,25 @@ def register():
 
     cursor = None
     if not user_name or not user_password or not user_repeat_password or not user_email:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'user_name' : user_name, 'user_email': user_email, 'user_password' : user_password, 'user_repeat_password': user_repeat_password}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_name' : user_name, 'user_email': user_email, 'user_password' : user_password, 'user_repeat_password': user_repeat_password}), 400
     
     if user_repeat_password != user_password:
-        return jsonify({'status': 'error', 'message': 'Passwords are not the same', 'user_password' : user_password, 'user_repeat_password': user_repeat_password }), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Passwords are not the same', 'user_password' : user_password, 'user_repeat_password': user_repeat_password }), 400
 
     if not valid_email(user_email):
-        return jsonify({'status': 'error', 'message': 'The email that you are trying to register is not valid'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register is not valid'}), 400
     
     if not valid_user(user_name): 
-        return jsonify({'status': 'error', 'message': 'The username you are trying to register is not valid. It must be alphanumeric and between 3 and 50 characters long.'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The username you are trying to register is not valid. It must be alphanumeric and between 3 and 50 characters long.'}), 400
                                                         
     if not valid_password(user_password):
-        return jsonify({'status': 'error', 'message': 'Password must be longer than 5 characters'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Password must be longer than 5 characters'}), 400
 
     if exist_record_in_table("user","email", user_email):
-         return jsonify({'status': 'error', 'message': 'The email that you are trying to register already exists'}), 409
+         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
     
     if exist_record_in_table("user","name", user_name):
-         return jsonify({'status': 'error', 'message': 'The user that you are trying to register already exists'}), 409
+         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to register already exists'}), 409
     try:
         user_password = bcrypt.generate_password_hash(user_password).decode('utf-8')
         cursor = mysql.connection.cursor()
@@ -52,12 +52,12 @@ def register():
 
         #send_verification_email(user_email=user_email) the token has expired
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': 'success', 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
         return jsonify(message_enpoint), 201
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': 'error', 'message': str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
         return jsonify(message_enpoint) ,500
     
     finally:
@@ -96,11 +96,11 @@ def show_users(token_data, original_token):
                 """
         cursor.execute(query, (quantity, offset))
         response = cursor.fetchall()      
-        message_enpoint = {'status': 'success', 'message' : 'Consulted correctly', 'response' : response}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly', 'response' : response}
         return jsonify(message_enpoint), 200
     
     except Exception as e:
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         return jsonify(message_enpoint), 500
     
     finally:
@@ -117,16 +117,16 @@ def update_user(token_data, original_token):
     status_response = ""
     message_enpoint = ""
     if not user_name or not user_password or not token_data['user_id']:
-        return jsonify({'status': 'error', 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name, 'user_password' : user_password}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name, 'user_password' : user_password}), 400
 
     if not valid_user(user_name) or not valid_email(user_email) or not valid_password(user_password):
-        return jsonify({'status': 'error', 'message': 'The email or the username that you are trying to register is not valid'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email or the username that you are trying to register is not valid'}), 400
 
     if exist_record_in_table("user","email", user_email):
-         return jsonify({'status': 'error', 'message': 'The email that you are trying to register already exists'}), 409
+         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
     # proceso sobre validación de correo y cambio en caso de existir    
     if exist_record_in_table("user","name", user_name):
-         return jsonify({'status': 'error', 'message': 'The user that you are trying to register already exists'}), 409
+         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to register already exists'}), 409
   
     cursor = None
 
@@ -144,12 +144,12 @@ def update_user(token_data, original_token):
 
         cursor.execute(query, (user_name, user_password, user_email, token_data['user_id']))  
         mysql.connection.commit()
-        message_enpoint = {'status': 'success', 'message' : 'Successfully updated', 'user_name': user_name, 'user_email': user_email}
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successfully updated', 'user_name': user_name, 'user_email': user_email}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
     
     except Exception as e:
-        message_enpoint = {'status': 'error', 'message' : str(e) }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 500
 
@@ -176,7 +176,7 @@ def confirm_email(token):
         user = cursor.fetchone()
 
         if not user:
-            return jsonify({'status': 'error', 'message': 'Invalid user'}), 404
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid user'}), 404
 
         if user[0] == 'null': # marrafufada  
             return jsonify({'status': 'info', 'message': 'Account already confirmed'}), 200
@@ -184,12 +184,12 @@ def confirm_email(token):
         cursor.execute("UPDATE user SET confirmed_on = null, confirmed_on = %s WHERE email = %s", (datetime.now(), user_email))
         mysql.connection.commit()
 
-        return jsonify({'status': 'success', 'message': 'Account successfully confirmed'}), 200
-
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully confirmed'}), 200
+    
     except jwt.ExpiredSignatureError:
-        return jsonify({'status': 'error', 'message': 'The confirmation link has expired'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The confirmation link has expired'}), 400
     except jwt.InvalidTokenError:
-        return jsonify({'status': 'error', 'message': 'Invalid token'}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid token'}), 400
     
 
 @users_bp.route('/login', methods = ['POST'])
@@ -204,7 +204,7 @@ def login_user():
 
 
     if (not user_name and not user_email) or not user_password:
-        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'user_name': user_name,'user_email': user_email, 'user_password' : user_password}), 400
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_name': user_name,'user_email': user_email, 'user_password' : user_password}), 400
 
     cursor = None
     try:       
@@ -228,17 +228,17 @@ def login_user():
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
-            message_enpoint = {'status': 'success', 'message' : 'Successful login', 'token' : token}
+            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}
             status_response = StatusResponse.SUCCESS
 
             return jsonify(message_enpoint), 200
         
-        message_enpoint = {'status': 'error', 'message': 'Incorrect username or password'}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 401
     
     except Exception as e:
-        message_enpoint = {'status': 'error', 'message': str(e)}
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         status_response = StatusResponse.ERROR
         return jsonify(message_enpoint), 500
     
