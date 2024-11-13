@@ -215,7 +215,7 @@ def delete_rating(token_data, original_token):
     parameter = 'rating_id'
 
     if not rating_id:
-         return jsonify({'status': StatusResponse.ERROR.value, 'message': rating_id}), 400
+         return jsonify({'status': StatusResponse.ERROR, 'message': Status.NOT_ENTERED.value, 'rating_id': rating_id}), 400
 
     if not exist_record_in_table(table, parameter, rating_id):
         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The requested record was not found, please check again.'}), 404
@@ -239,3 +239,29 @@ def delete_rating(token_data, original_token):
     finally:
         if cursor:
             cursor.close()
+
+@ratings_bp.route('/rating_average', methods=['GET'])
+@token_required
+def rating_average(token_data, original_token):
+    picture_id = request.args.get('picture_id', type=str)
+    tag_id = request.args.get('tag_id', type=str)
+
+    if not tag_id or not picture_id:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'id_picture': picture_id, 'tag_id': tag_id})
+
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+                    SELECT
+                        AVG(score)
+                    FROM
+                        rating
+                    WHERE
+                        picture_id = %s AND tag_id = %s
+                    ;
+                """
+        cursor.execute(query, (picture_id, ))
+        rating_average = cursor.fetchone()
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_CONSULTED.value,'rating_average': rating_average})
+    except Exception as e:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)})

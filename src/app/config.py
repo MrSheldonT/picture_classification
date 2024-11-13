@@ -5,7 +5,7 @@ class Config:
     MYSQL_USER = 'root'
     MYSQL_PASSWORD = ''
     SECRET_KEY = os.environ.get('SECRET_KEY')
-    
+    print(os.environ.get('SECRET_KEY'))
     #MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     #MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_SERVER = 'smtp.gmail.com'

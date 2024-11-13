@@ -16,7 +16,7 @@ def register():
     user_email = request.form.get('user_email', type=str)
     user_password = request.form.get('user_password', type=str) 
     user_repeat_password = request.form.get('user_repeat_password', type=str)
-    message_enpoint = ""
+    message_endpoint = ""
     status_response = ""
 
     cursor = None
@@ -52,13 +52,13 @@ def register():
 
         #send_verification_email(user_email=user_email) the token has expired
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
-        return jsonify(message_enpoint), 201
+        message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
+        return jsonify(message_endpoint), 201
     
     except Exception as e:
         status_response = StatusResponse.ERROR
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
-        return jsonify(message_enpoint) ,500
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
+        return jsonify(message_endpoint) ,500
     
     finally:
     
@@ -67,7 +67,7 @@ def register():
         register_audit(
                 type_=Transaccion.CREATE, 
                 request=request.url,
-                message= message_enpoint,
+                message= message_endpoint,
                 status= status_response,
                 user_id= default_id, 
                 entity=Table.user
@@ -79,7 +79,7 @@ def register():
 def show_users(token_data, original_token):
 
     cursor = None
-    message_enpoint = ""
+    message_endpoint = ""
     try:
         page = request.args.get('page', default=1, type=int)
         quantity = request.args.get('quantity', default=50, type=int)
@@ -96,30 +96,77 @@ def show_users(token_data, original_token):
                 """
         cursor.execute(query, (quantity, offset))
         response = cursor.fetchall()      
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly', 'response' : response}
-        return jsonify(message_enpoint), 200
+        message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly', 'response' : response}
+        return jsonify(message_endpoint), 200
     
     except Exception as e:
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
-        return jsonify(message_enpoint), 500
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
+        return jsonify(message_endpoint), 500
     
     finally:
         if cursor:
             cursor.close()
+
+@users_bp.route('/update_status_user', methods=['PATCH'])
+@token_required
+def update_status_user(token_data, original_token):
+    user_id = request.form.get('user_id', type=int)
+    user_status = request.form.get('user_status', type=int)
+    status_response = ""
+    message_endpoint = ""
+    if user_id is None and user_status is None:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_id': user_id, 'user_status': user_status})
+    
+    if not exist_record_in_table("user","user_id", user_id):
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to modify do not exists'}), 409
+    
+    if user_id not in(1,2) and token_data['user_id'] not in(1,2): #update the id for administrator
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to modify is administrator'}), 409
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+                    UPDATE
+                        user
+                    SET
+                        confirmed_on = %s
+                    WHERE
+                        user_id = %s
+                """
+        cursor.execute(query, (user_status, user_id))
+        mysql.connection.commit()
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED.value, 'user_id': user_id}
+        status_response = StatusResponse.SUCCESS
+        return jsonify(message_endpoint), 200
+    except Exception as e:
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
+        status_response = StatusResponse.ERROR
+        return jsonify(message_endpoint), 500
+    finally:
+        if cursor:
+            cursor.close()
+        register_audit(
+                type_= Transaccion.UPDATE, 
+                request= request.url,
+                message= message_endpoint,
+                status= status_response,
+                user_id= token_data['user_id'], 
+                entity= Table.user
+            )
 
 @users_bp.route('/update_user', methods=['PATCH'])
 @token_required
 def update_user(token_data, original_token):
 
     user_name = request.form.get('user_name', type=str)
-    user_password = request.form.get('user_password', type=str) 
+    
     user_email = request.form.get('user_email', type=str)
     status_response = ""
-    message_enpoint = ""
-    if not user_name or not user_password or not token_data['user_id']:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name, 'user_password' : user_password}), 400
+    message_endpoint = ""
+    if not user_name or not token_data['user_id']:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name}), 400
 
-    if not valid_user(user_name) or not valid_email(user_email) or not valid_password(user_password):
+    if not valid_user(user_name) or not valid_email(user_email):
         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email or the username that you are trying to register is not valid'}), 400
 
     if exist_record_in_table("user","email", user_email):
@@ -131,27 +178,27 @@ def update_user(token_data, original_token):
     cursor = None
 
     try:
-        user_password = bcrypt.generate_password_hash(user_password).decode('utf-8')
+        
         cursor = mysql.connection.cursor()
         query = """
                     UPDATE 
                         user
                     SET 
-                        name= %s, password= %s, email = %s
+                        name= %s, email = %s
                     WHERE 
                         user_id = %s 
                 """
 
-        cursor.execute(query, (user_name, user_password, user_email, token_data['user_id']))  
+        cursor.execute(query, (user_name, user_email, token_data['user_id']))  
         mysql.connection.commit()
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successfully updated', 'user_name': user_name, 'user_email': user_email}
+        message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successfully updated', 'user_name': user_name, 'user_email': user_email}
         status_response = StatusResponse.SUCCESS
-        return jsonify(message_enpoint), 200
+        return jsonify(message_endpoint), 200
     
     except Exception as e:
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
         status_response = StatusResponse.ERROR
-        return jsonify(message_enpoint), 500
+        return jsonify(message_endpoint), 500
 
     finally:
         if cursor:
@@ -159,7 +206,7 @@ def update_user(token_data, original_token):
         register_audit(
                 type_=Transaccion.UPDATE, 
                 request=request.url,
-                message= message_enpoint,
+                message= message_endpoint,
                 status= status_response,
                 user_id= token_data['user_id'], 
                 entity=Table.user
@@ -196,63 +243,70 @@ def confirm_email(token):
 def login_user():
     
     user_name = request.form.get('user_name', type=str)
-    user_email = request.form.get('user_email', type=str)
     user_password = request.form.get('user_password', type=str)
-    status_response = ""
-    message_enpoint = ""
+    status_response = StatusResponse.ERROR
+    message_endpoint = ""
     user = ""
 
-
-    if (not user_name and not user_email) or not user_password:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_name': user_name,'user_email': user_email, 'user_password' : user_password}), 400
+    if not user_name or not user_password:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_name': user_name, 'user_password' : user_password}), 400
 
     cursor = None
     try:       
         cursor = mysql.connection.cursor()
         query = """
                     SELECT 
-                        user_id, name, password
+                        user_id, name, password, confirmed_on
                     FROM 
                         user
                     WHERE 
-                        (name = %s OR email = %s) AND confirmed_on = 1 
+                        (name = %s OR email = %s)
+                    ;
                 """
-        cursor.execute(query, (user_name, user_email))
+        cursor.execute(query, (user_name, user_name))
         user = cursor.fetchone()
-
-        if user:
-            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Account denied, please contact administration for permission'})
+        
+        if user is None:
+            message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'The account does not exist'}
+            status_response = StatusResponse.ERROR    
+            return jsonify(message_endpoint), 401
+        
+        if user[3] == 0:
+            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Account denied, please contact administration for permission'}), 403
                                                                             
         if user and bcrypt.check_password_hash(user[2], user_password):
             token = jwt.encode({
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
-            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}
+            message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}
             status_response = StatusResponse.SUCCESS
 
-            return jsonify(message_enpoint), 200
+            return jsonify(message_endpoint), 200
         
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}
+        
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}
         status_response = StatusResponse.ERROR
-        return jsonify(message_enpoint), 401
+        return jsonify(message_endpoint), 401
     
     except Exception as e:
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         status_response = StatusResponse.ERROR
-        return jsonify(message_enpoint), 500
+        return jsonify(message_endpoint), 500
     
     finally:
         if cursor:
             cursor.close()
-        register_audit(
-                type_=Transaccion.OTHERS, 
-                request=request.url,
-                message= message_enpoint,
-                status=status_response, 
-                user_id=user[0], 
-                entity=Table.user
-            )
+        if user is not None:
+
+            register_audit(
+                    type_=Transaccion.OTHERS, 
+                    request=request.url,
+                    message= message_endpoint,
+                    status=status_response, 
+                    user_id=user[0], 
+                    entity=Table.user
+                )
 
 def send_verification_email(user_email):
     try:

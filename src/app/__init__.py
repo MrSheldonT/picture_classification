@@ -34,6 +34,8 @@ def create_app():
         cursor = mysql.connection.cursor()
         query = """INSERT INTO user(email, name, password)
                     VALUES('clasificacion.fotos@gmail.com', 'clasificacion_fotos', %s)"""
+        print("--------------------------")
+        print(os.environ.get('ADMIN_PASSWORD'))
         user_password = bcrypt.generate_password_hash(os.environ.get('ADMIN_PASSWORD')).decode('utf-8')
         cursor.execute(query, (user_password,) )
         mysql.connection.commit()
