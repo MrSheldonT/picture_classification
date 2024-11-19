@@ -212,6 +212,54 @@ def update_user(token_data, original_token):
                 entity=Table.user
             )
 
+@users_bp.route('/update_password', methods=['PATCH'])
+@token_required
+def update_password(token_data, original_token):
+    
+    old_password = request.form.get('old_password', type=str)
+    new_password = request.form.get('new_password', type=str)
+
+    if not old_password or not new_password:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value})
+        
+    if  not valid_password(new_password):
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': "The password is not valid"})
+    message_enpoint = ""
+    status_response = ""
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+                    SELECT
+                        password
+                    FROM
+                        user
+                    WHERE
+                        user_id = %s
+                """
+        cursor.execute(query, (token_data['user_id'],))
+        response = cursor.fetchone()[0]
+        if response and bcrypt.check_password_hash(response, old_password):
+            new_password_hash = bcrypt.generate_password_hash(new_password).decode('utf-8')
+            print(new_password_hash)
+            query = """
+                        UPDATE
+                            user
+                        SET
+                            password = %s
+                        WHERE
+                            user_id = %s
+                    """
+            cursor.execute(query, (new_password_hash, token_data['user_id']))
+            mysql.connection.commit()
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED }
+        status_response = StatusResponse.ERROR
+    except Exception as e:
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
+        status_response = StatusResponse.ERROR
+        return jsonify(message_endpoint), 500
+    finally:
+        1
 @users_bp.route('/confirm_email<token>', methods=['GET']) ## fix
 def confirm_email(token):
     try:
