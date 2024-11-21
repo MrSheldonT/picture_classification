@@ -1,8 +1,11 @@
 
 from flask import current_app, url_for
 import hashlib
+import zipfile
 import os
 import mimetypes
+import io
+
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif'}
 
@@ -54,3 +57,21 @@ def url_for_picture(full_path):
     else:
         return None
     
+def pictures_to_zip(paths, parameters):
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for path in paths:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"El archivo no existe: {path}")
+            
+            original_name = os.path.basename(path)        
+            new_name = f"{parameters}_{os.path.splitext(original_name)[0]}_{os.path.splitext(original_name)[1]}"
+            
+            with open(path, 'rb') as file:
+                content = file.read()
+            
+            zipf.writestr(new_name, content)
+
+    zip_buffer.seek(0)
+    return zip_buffer

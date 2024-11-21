@@ -386,3 +386,29 @@ def delete_tag(token_data, original_token):
                 user_id=token_data['user_id'], 
                 entity=Table.tag
         )
+
+@tags_and_categories_bp.route('/tag_statistics', methods=['GET'])
+@token_required
+def tag_statistics(token_data, original_token):
+    tag_id = request.args.get('tag_id', type=int)
+    
+    print(tag_id)
+    cursor = None
+    if not tag_id:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'tag_id':tag_id})
+    
+    try:
+        cursor = mysql.connection.cursor()        
+        query = """
+                    SELECT
+                        COUNT(rating_id)
+                    FROM
+                        rating
+                    WHERE
+                        tag_id = %s
+                """
+        cursor.execute(query, (tag_id, ))
+        response = cursor.fetchone()
+        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': response}), 200
+    except Exception as e:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)})

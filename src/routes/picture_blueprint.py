@@ -1,7 +1,7 @@
-from flask import Blueprint, jsonify, request, current_app, send_from_directory
+from flask import Blueprint, jsonify, request, current_app, send_from_directory, send_file
 from utils.token_validation import token_required
 from app.extensions import mysql
-from utils.files import allowed_file, picture_to_hash, save_picture, delete_picture_file, url_for_picture
+from utils.files import allowed_file, picture_to_hash, save_picture, delete_picture_file, url_for_picture, pictures_to_zip
 from utils.database_verification import exist_record_in_table
 from utils.audit import Table, StatusResponse, Transaccion, register_audit
 from utils.message_status import Status
@@ -25,13 +25,12 @@ def upload_picture(token_data, original_token):
         return 'No file selected', 400
     
     album_id = request.form.get('album_id', type=int)
-    category_id = request.form.get('category_id', type=int, default=1)
     date = request.form.get('date',type=str, default=datetime.today().strftime('%Y-%m-%d'))
     table = "picture"
     parameter = "picture_id"
     
-    if not album_id or not category_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id, 'category_id': category_id }), 400
+    if not album_id:
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'album_id' : album_id }), 400
 
     try:
         date = datetime.fromisoformat(date.replace("Z", "+00:00"))  # Si la fecha está en UTC
@@ -55,14 +54,14 @@ def upload_picture(token_data, original_token):
             filepath =  save_picture(file, picture_id, upload_folder)
             query = """
                         INSERT INTO 
-                            picture (picture_id, path, album_id, category_id,date)
-                        VALUES (%s, %s, %s, %s, %s)
+                            picture (picture_id, path, album_id, date)
+                        VALUES (%s, %s, %s, %s)
                     """
             
-            cursor.execute(query, (picture_id, filepath, album_id, category_id,date))
+            cursor.execute(query, (picture_id, filepath, album_id,date))
             mysql.connection.commit()
             status_response = StatusResponse.SUCCESS
-            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id, 'category_id': category_id}
+            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id}
             return jsonify(message_enpoint), 200
         
         except Exception as e:
@@ -379,11 +378,6 @@ def show_picture_from_album_pages(token_data, original_token):
             cursor.close()
 
 
-
-
-
-
-
 @pictures_bp.route('/show_picture_from_album_progress', methods=['GET'])
 @token_required
 def show_picture_from_album_progress(token_data, original_token):
@@ -401,7 +395,6 @@ def show_picture_from_album_progress(token_data, original_token):
     try:
         cursor = mysql.connection.cursor()
         
-        # Convertir las fechas de string a datetime si se proporcionan
         if start_date:
             try:
                 start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
@@ -425,7 +418,6 @@ def show_picture_from_album_progress(token_data, original_token):
         
         params = [album_id]
         
-        # Solo añadimos las fechas a la consulta si se proporcionan
         if start_date and end_date:
             query += " AND date BETWEEN %s AND %s"
             params.extend([start_date, end_date])
@@ -640,4 +632,90 @@ def delete_picture(token_data, original_token):
                 user_id=token_data['user_id'], 
                 entity=Table.picture
         )
+
+@pictures_bp.route('/download_picture_with_filter', methods = ['POST'])
+@token_required
+def download_picture_with_filter():
+    1 
+
+### picture with filters: fecha, tag, 
+##
+@pictures_bp.route('/download_picture_zip', methods=['POST'])
+@token_required
+def download_picture_zip(token_data, original_token):
+    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
+    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
+    tag = request.form.get('tag', type=int)
+    category = request.form.get('category', type=int)
+    project = request.form.get('project', type=int)
+    score_min_rating = request.form.get('score_min_rating', type=int, default=0)
+    score_max_rating = request.form.get('score_max_rating', type=int, default=3)
     
+    try:
+        
+        cursor = mysql.connection.cursor()
+        
+        query = """
+            SELECT
+                p.path
+            FROM
+                picture AS p
+                LEFT JOIN rating AS r
+                    ON r.picture_id = p.picture_id
+                LEFT JOIN album AS a
+                    ON p.album_id = a.album_id
+                LEFT JOIN location as l
+                    ON a.location_id = l.location_id
+                LEFT JOIN project as proj
+                    ON proj.project_id = l.project_id
+                LEFT JOIN tag AS t
+                    ON t.tag_id = r.tag_id
+                LEFT JOIN category AS c
+                    ON c.category_id = t.category_id 
+            WHERE
+                p.date BETWEEN %s AND %s
+        """
+        params = [date_begin, date_end]
+        if tag:
+            query += " AND (t.tag_id = %s OR t.tag_id IS NULL)"
+            params.append(tag)
+        if category:
+            query += " AND (c.category_id = %s OR c.category_id IS NULL)"
+            params.append(category)
+        if project:
+            query += " AND (proj.project_id = %s OR proj.project_id IS NULL)"
+            params.append(project)
+        if score_min_rating is not None and score_max_rating is not None:
+            query += " AND (r.score BETWEEN %s AND %s OR r.score IS NULL)"
+            params.extend([score_min_rating, score_max_rating])
+
+        cursor.execute(query, params)
+        
+        path_pictures = []
+        for path in cursor.fetchall():
+            path_pictures.append(path[0])
+        
+        result = '_'.join(str(e).replace(' ', '_') for e in params)
+        
+        zip_file = pictures_to_zip(path_pictures, result)
+
+        return send_file(
+            zip_file,
+            as_attachment=True,
+            download_name='mayate.zip',
+            mimetype='application/zip'
+        )
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+
+# ctrl c + k , ctrl u + k
+
+# filtrar por etiquetas, fechas, propiedades en general, si no se han calificado, 
+# botones maybe por ver cuales están calificados en plan, rojo no es categoria calificada, verde calificada, Azul la seleccionada
+# mostrar cuantas personas han evaluado, promedio?, a apartir de una imagen elaborar una gráfica.
+# descargar con los filtros aplicados en la búsqueda con el nombre y propiedades de cada foto, esto desde los proyectos, caracteristicas
+# exportar las imagenes que ya tienen para poder visualizer la imagen   
