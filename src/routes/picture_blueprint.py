@@ -116,7 +116,6 @@ def render_picture(token_data, original_token):
         if picture:
             #path, id, date
             url_picture = url_for_picture(picture[0]), picture[1], picture[2]
-            print(url_picture)
             if url_picture:
                 return jsonify({'status': StatusResponse.SUCCESS.value, 'picture_url': url_picture}), 200
             else:
@@ -633,15 +632,9 @@ def delete_picture(token_data, original_token):
                 entity=Table.picture
         )
 
-@pictures_bp.route('/download_picture_with_filter', methods = ['POST'])
-@token_required
-def download_picture_with_filter():
-    1 
-
-### picture with filters: fecha, tag, 
-##
-@pictures_bp.route('/download_picture_zip', methods=['POST'])
-@token_required
+#deprecated
+@pictures_bp.route('/download_picture_zip_filter', methods=['POST'])
+@download_picture_zip_filter
 def download_picture_zip(token_data, original_token):
     date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
     date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
@@ -702,7 +695,7 @@ def download_picture_zip(token_data, original_token):
         return send_file(
             zip_file,
             as_attachment=True,
-            download_name='mayate.zip',
+            download_name='pictures.zip',
             mimetype='application/zip'
         )
 
@@ -712,10 +705,77 @@ def download_picture_zip(token_data, original_token):
         if cursor:
             cursor.close()
 
-# ctrl c + k , ctrl u + k
 
-# filtrar por etiquetas, fechas, propiedades en general, si no se han calificado, 
-# botones maybe por ver cuales están calificados en plan, rojo no es categoria calificada, verde calificada, Azul la seleccionada
-# mostrar cuantas personas han evaluado, promedio?, a apartir de una imagen elaborar una gráfica.
-# descargar con los filtros aplicados en la búsqueda con el nombre y propiedades de cada foto, esto desde los proyectos, caracteristicas
-# exportar las imagenes que ya tienen para poder visualizer la imagen   
+@pictures_bp.route('/download_picture_zip_filters', methods=['POST'])
+@token_required
+def download_picture_zip_filters(token_data, original_token):
+    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
+    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
+    tags = request.form.getlist('tags', type=int)
+    categories = request.form.getlist('categories', type=int)
+    projects = request.form.getlist('projects', type=int)
+    scores = request.form.getlist('scores', type=int)
+    
+    print("-------------------",tags,"------------")
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+            SELECT
+                p.path
+            FROM
+                picture AS p
+                LEFT JOIN rating AS r
+                    ON r.picture_id = p.picture_id
+                LEFT JOIN album AS a
+                    ON p.album_id = a.album_id
+                LEFT JOIN location as l
+                    ON a.location_id = l.location_id
+                LEFT JOIN project as proj
+                    ON proj.project_id = l.project_id
+                LEFT JOIN tag AS t
+                    ON t.tag_id = r.tag_id
+                LEFT JOIN category AS c
+                    ON c.category_id = t.category_id 
+            WHERE
+                p.date BETWEEN %s AND %s
+        """ 
+        params = [date_begin, date_end]
+        if tags:
+            query += f" AND (t.tag_id IN ({', '.join(['%s'] * len(tags))}))"
+            params.extend(tags)
+        if categories:
+            query += f" AND (c.category_id IN ({', '.join(['%s'] * len(categories))}))"
+            params.extend(categories)
+        if projects:
+            query += f" AND (proj.project_id IN ({', '.join(['%s'] * len(projects))}))"
+            params.extend(projects)
+        if scores:
+            query += f" AND (r.score IN ({', '.join(['%s'] * len(scores))}))"
+            params.extend(scores)
+        
+        
+        cursor.execute(query, params)
+        
+        path_pictures = []
+        
+        for path in cursor.fetchall():
+            path_pictures.append(path[0])
+        
+        result = '_'.join(str(e).replace(' ', '_') for e in params)
+        
+        zip_file = pictures_to_zip(path_pictures, result)
+
+        return send_file(
+            zip_file,
+            as_attachment=True,
+            download_name='task.zip',
+            mimetype='application/zip'
+        )
+    except Exception as e:
+        1
+    # date_begin -> fecha normal
+    # date_end -> fecha normal
+    # tag = ('tag_1', 'tag_2', ... ) | ()
+    # category = ('tag_1', 'tag_2', ... ) | () pero con category
+    # project = ('tag_1', 'tag_2', ... ) | () pero con project
+    # score_allow = (1,2,3) | ()
