@@ -582,3 +582,56 @@ def delete_album(token_data, original_token):
                 user_id=token_data['user_id'], 
                 entity=Table.album
         )
+
+@project_structure_bp.route('/get_project_by_id',methods=['GET']) # ocupas todo?
+@token_required
+def get_project(token_data,original_token):
+    project_id = request.args.get('project_id', type=int)
+
+    if not project_id:
+        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'project_id': project_id})
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        query = """SELECT * FROM project WHERE project_id = %s """
+        cursor.execute(query,(project_id,))
+        response = cursor.fetchall()
+        return ({'status':'success','message':Status.SUCCESSFULLY_CONSULTED.value,'response':response}),200
+    except Exception as e:
+        return jsonify({'status':'error','message':str(e)}),400
+ 
+
+@project_structure_bp.route('/get_location_by_id',methods=['GET'])
+@token_required
+def get_location(token_data,original_token):
+    location_id = request.args.get('location_id', type=int)
+
+    if not location_id:
+        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'location_id':location_id})
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        query = """SELECT * FROM location WHERE location_id = %s """
+        cursor.execute(query,(location_id,))
+        response = cursor.fetchall()
+        return ({'status':'success','message':Status.SUCCESSFULLY_CONSULTED.value,'response':response}),200
+    except Exception as e:
+        return jsonify({'status':'error','message':str(e)}),400
+
+
+@project_structure_bp.route('/get_album_by_id',methods=['GET'])
+@token_required
+def get_album(token_data,original_token):
+    album_id = request.args.get('album_id', type=int)
+
+    if not album_id:
+        return jsonify({'status': 'error', 'message': Status.NOT_ENTERED.value, 'album_id':album_id})
+    cursor = None
+    try:
+        cursor = mysql.connection.cursor()
+        query = """SELECT * FROM album WHERE album_id = %s """
+        cursor.execute(query,(album_id,))
+        response = cursor.fetchall()
+        return ({'status':'success','message':Status.SUCCESSFULLY_CONSULTED.value,'response':response}),200
+    except Exception as e:
+        return jsonify({'status':'error','message':str(e)}),400
