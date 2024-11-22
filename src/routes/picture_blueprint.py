@@ -634,7 +634,7 @@ def delete_picture(token_data, original_token):
 
 #deprecated
 @pictures_bp.route('/download_picture_zip_filter', methods=['POST'])
-@download_picture_zip_filter
+@token_required
 def download_picture_zip(token_data, original_token):
     date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
     date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))

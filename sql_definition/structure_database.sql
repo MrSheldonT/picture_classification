@@ -39,7 +39,7 @@ CREATE TABLE category (
 
 CREATE TABLE tag (
     tag_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(50) NOT NULL,
     category_id INT
 );
 
