@@ -300,7 +300,6 @@ def show_picture_from_album_pages(token_data, original_token):
     max_groups = request.args.get('max_groups', default=6, type=int)  # Limitar grupos (por fecha)
     page = request.args.get('page', default=1, type=int)
     
-    # Definir el número de imágenes por página
     offset = (page - 1) * max_groups  # Calcular el desplazamiento para grupos
 
     if not album_id:
@@ -310,7 +309,6 @@ def show_picture_from_album_pages(token_data, original_token):
     try:
         cursor = mysql.connection.cursor()
         
-        # Consulta para obtener las imágenes del álbum ordenadas por fecha
         query = """
             SELECT 
                 path, picture_id, date
@@ -322,15 +320,14 @@ def show_picture_from_album_pages(token_data, original_token):
                 date DESC
         """
         
-        # Ejecutar la consulta para obtener todas las imágenes
+        
         cursor.execute(query, (album_id,))
         all_pictures = cursor.fetchall()
 
-        # Agrupar las imágenes por mes y año (YYYY-MM)
         pictures_by_date = {}
         for picture in all_pictures:
             path, picture_id, date = picture
-            # Formato año-mes (YYYY-MM) para la agrupación
+            
             year_month = date.strftime("%Y-%m")  # Usamos solo año y mes para agrupar
             if year_month not in pictures_by_date:
                 pictures_by_date[year_month] = []
@@ -340,27 +337,24 @@ def show_picture_from_album_pages(token_data, original_token):
                 "date": date
             })
 
-        # Limitar el número de imágenes dentro de cada grupo de fechas
+
         for date, pictures in pictures_by_date.items():
             pictures_by_date[date] = pictures[:max_pictures_per_group]  # Limitamos a max_pictures_per_group imágenes por grupo de fecha
 
-        # Convertir el diccionario a una lista de grupos de imágenes (por fecha completa)
+
         grouped_pictures = [{"date": date, "pictures": pictures} for date, pictures in pictures_by_date.items()]
 
-        # Ordenar los grupos por fecha (año-mes) en orden descendente
+
         grouped_pictures.sort(key=lambda x: x["date"], reverse=True)
 
-        # Limitar el número de grupos que se devuelven
-        grouped_pictures = grouped_pictures[offset:offset + max_groups]  # Limitamos el número de grupos devueltos para la página
 
-        # Calcular la cantidad total de páginas necesarias
+        grouped_pictures = grouped_pictures[offset:offset + max_groups]  
+
         total_groups = len(pictures_by_date)  # Total de grupos sin limitación
         total_pages = (total_groups + max_groups - 1) // max_groups  # Redondear hacia arriba
 
-        # Obtener la sección de grupos de imágenes correspondiente a la página solicitada
         page_groups = grouped_pictures
 
-        # Retornar la respuesta con las imágenes agrupadas por fecha en forma de matriz
         return jsonify({
             'status': StatusResponse.SUCCESS.value,
             'message': 'Pictures retrieved successfully',
@@ -773,6 +767,76 @@ def download_picture_zip_filters(token_data, original_token):
         )
     except Exception as e:
         1
+
+
+
+
+
+@pictures_bp.route('/show_picture_filters', methods=['POST'])
+def show_picture_filters():
+    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
+    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
+    tags = request.form.getlist('tags', type=int)
+    categories = request.form.getlist('categories', type=int)
+    projects = request.form.getlist('projects', type=int)
+    scores = request.form.getlist('scores', type=int)
+    
+    try:
+        cursor = mysql.connection.cursor()
+        query = """
+            SELECT
+                p.path
+            FROM
+                picture AS p
+                LEFT JOIN rating AS r
+                    ON r.picture_id = p.picture_id
+                LEFT JOIN album AS a
+                    ON p.album_id = a.album_id
+                LEFT JOIN location as l
+                    ON a.location_id = l.location_id
+                LEFT JOIN project as proj
+                    ON proj.project_id = l.project_id
+                LEFT JOIN tag AS t
+                    ON t.tag_id = r.tag_id
+                LEFT JOIN category AS c
+                    ON c.category_id = t.category_id 
+            WHERE
+                p.date BETWEEN %s AND %s
+        """
+        params = [date_begin, date_end]
+        if tags:
+            query += f" AND (t.tag_id IN ({', '.join(['%s'] * len(tags))}))"
+            params.extend(tags)
+        if categories:
+            query += f" AND (c.category_id IN ({', '.join(['%s'] * len(categories))}))"
+            params.extend(categories)
+        if projects:
+            query += f" AND (proj.project_id IN ({', '.join(['%s'] * len(projects))}))"
+            params.extend(projects)
+        if scores:
+            query += f" AND (r.score IN ({', '.join(['%s'] * len(scores))}))"
+            params.extend(scores)
+        
+        cursor.execute(query, params)
+        path_pictures = [url_for_picture(path[0]) for path in cursor.fetchall()]
+        
+        return jsonify({
+            "filtered_pictures": path_pictures,
+            "filter_params": {
+                "date_begin": date_begin,
+                "date_end": date_end,
+                "tags": tags,
+                "categories": categories,
+                "projects": projects,
+                "scores": scores
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": StatusResponse.ERROR.value,
+            "message": str(e)
+        }), 500
+
     # date_begin -> fecha normal
     # date_end -> fecha normal
     # tag = ('tag_1', 'tag_2', ... ) | ()
