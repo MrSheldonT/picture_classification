@@ -774,10 +774,6 @@ def download_picture_zip_filters():
     except Exception as e:
         1
 
-
-
-
-
 @pictures_bp.route('/show_picture_filters', methods=['POST'])
 def show_picture_filters():
     from werkzeug.exceptions import BadRequest
@@ -863,6 +859,54 @@ def show_picture_filters():
         }), 400
     except Exception as e:
         1
+
+@pictures_bp.route('/show_path_picture', methods = ['GET'])
+
+def show_path_picture():
+    picture_id = request.args.get('picture_id')
+    
+    if not picture_id:
+        return jsonify({"status":StatusResponse.ERROR.value, "message": Status.NOT_ENTERED.value})
+    cursor = ""
+    try:
+        cursor = mysql.connection.cursor()
+
+        query = """
+                    SELECT
+                        p.picture_id
+                        , a.album_id
+                        , l.location_id
+                        , pr.project_id
+                    FROM
+                        picture AS p
+                        JOIN album AS a
+                        ON a.album_id = p.album_id
+                        JOIN location AS l
+                        ON l.location_id = a.location_id
+                        JOIN project AS pr
+                        ON pr.project_id = l.location_id 
+                    WHERE
+                        p.picture_id = %s
+                """
+        
+        cursor.execute(query, (picture_id,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({"status": StatusResponse.ERROR.value, "message": Status.RECORD_NOT_FOUND.value})
+
+        response_data = {
+            "picture_id": result[0],
+            "album_id": result[1],
+            "location_id": result[2],
+            "project_id": result[3]
+        }
+
+        return jsonify({"status": StatusResponse.SUCCESS.value, "image": response_data})
+
+    except Exception as e:
+        return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)})
+    finally:
+        cursor.close()
     # date_begin -> fecha normal
     # date_end -> fecha normal
     # tag = ('tag_1', 'tag_2', ... ) | ()
