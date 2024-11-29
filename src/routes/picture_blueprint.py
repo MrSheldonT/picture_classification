@@ -173,383 +173,6 @@ def show_all_pictures(token_data, original_token):
         if cursor:
             cursor.close()
 
-
-@pictures_bp.route('/show_picture_from_album', methods=['GET'])
-@token_required
-def show_picture_from_album(token_data, original_token):
-    
-    album_id = request.args.get('album_id', default=1, type=int)
-    page = request.args.get('page', default=1, type=int)
-    quantity = request.args.get('quantity', default=20, type=int)
-    offset = (page - 1) * quantity
-    
-    if not album_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(Status.NOT_ENTERED), 'album_id': album_id})
-
-    cursor = None
-    try:    
-        cursor = mysql.connection.cursor()
-
-        # Obtener el total de imágenes para calcular el número total de páginas
-        count_query = "SELECT COUNT(*) FROM picture WHERE album_id = %s"
-        cursor.execute(count_query, (album_id,))
-        total_images = cursor.fetchone()[0]
-        total_pages = (total_images + quantity - 1) // quantity  # Calcula el número total de páginas
-
-        # Consulta para obtener las imágenes de la página actual
-        query = """
-                    SELECT 
-                        path, picture_id, date
-                    FROM 
-                        picture 
-                    WHERE 
-                        album_id = %s
-                    LIMIT %s 
-                    OFFSET %s
-                """
-        
-        cursor.execute(query, (album_id, quantity, offset))
-        all_pictures = cursor.fetchall()
-        url_all_pictures = []
-        
-        for picture in all_pictures:
-            url_picture = (url_for_picture(picture[0]), picture[1], picture[2])
-            if url_picture:
-                url_all_pictures.append(url_picture)
-            else:
-                print("No valido.")
-
-        if len(url_all_pictures):
-            return jsonify({
-                'status': StatusResponse.SUCCESS.value,
-                'message': str(Status.SUCCESSFULLY_CONSULTED),
-                'response': url_all_pictures,
-                'total_pages': total_pages
-            }), 200
-        else:
-            return jsonify({
-                'status': StatusResponse.SUCCESS.value,
-                'message': 'Consulted correctly, but there are no images',
-                'response': url_all_pictures,
-                'total_pages': total_pages
-            }), 200
-    
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
-
-    finally:
-        if cursor:
-            cursor.close()
-
-@pictures_bp.route('/show_album_date_range', methods=['GET'])
-@token_required
-def show_album_date_range(token_data, original_token):
-    
-    album_id = request.args.get('album_id', type=int)
-    
-    if not album_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Album ID is required', 'album_id': album_id}), 400
-
-    cursor = None
-    try:    
-        cursor = mysql.connection.cursor()
-        
-        # Consulta para obtener las fechas más antigua y más reciente
-        query = """
-                    SELECT 
-                        MIN(date) AS earliest_date,
-                        MAX(date) AS latest_date
-                    FROM 
-                        picture 
-                    WHERE 
-                        album_id = %s
-                """
-        
-        cursor.execute(query, (album_id,))
-        result = cursor.fetchone()
-        
-        if result and result[0] and result[1]:  # Accede a los resultados por índice
-            # Devolvemos la fecha más antigua y la más reciente
-            return jsonify({
-                'status': StatusResponse.SUCCESS.value, 
-                'message': 'Date range retrieved successfully',
-                'earliest_date': result[0],  # earliest_date es el primer campo
-                'latest_date': result[1]      # latest_date es el segundo campo
-            }), 200
-        else:
-            # Caso en que no hay fotos en el álbum
-            return jsonify({
-                'status': StatusResponse.SUCCESS.value, 
-                'message': 'No pictures found for this album', 
-                'earliest_date': None, 
-                'latest_date': None
-            }), 200
-
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e)}), 500
-
-    finally:
-        if cursor:
-            cursor.close()
-
-@pictures_bp.route('/show_picture_from_album_pages', methods=['GET'])
-@token_required
-def show_picture_from_album_pages(token_data, original_token):
-    album_id = request.args.get('album_id', default=1, type=int)
-    max_pictures_per_group = request.args.get('max_pictures_per_group', default=6, type=int)  # Limitar imágenes por grupo
-    max_groups = request.args.get('max_groups', default=6, type=int)  # Limitar grupos (por fecha)
-    page = request.args.get('page', default=1, type=int)
-    
-    offset = (page - 1) * max_groups  # Calcular el desplazamiento para grupos
-
-    if not album_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
-
-    cursor = None
-    try:
-        cursor = mysql.connection.cursor()
-        
-        query = """
-            SELECT 
-                path, picture_id, date
-            FROM 
-                picture 
-            WHERE 
-                album_id = %s
-            ORDER BY 
-                date DESC
-        """
-        
-        
-        cursor.execute(query, (album_id,))
-        all_pictures = cursor.fetchall()
-
-        pictures_by_date = {}
-        for picture in all_pictures:
-            path, picture_id, date = picture
-            
-            year_month = date.strftime("%Y-%m")  # Usamos solo año y mes para agrupar
-            if year_month not in pictures_by_date:
-                pictures_by_date[year_month] = []
-            pictures_by_date[year_month].append({
-                "url": url_for_picture(path),
-                "picture_id": picture_id,
-                "date": date
-            })
-
-
-        for date, pictures in pictures_by_date.items():
-            pictures_by_date[date] = pictures[:max_pictures_per_group]  # Limitamos a max_pictures_per_group imágenes por grupo de fecha
-
-
-        grouped_pictures = [{"date": date, "pictures": pictures} for date, pictures in pictures_by_date.items()]
-
-
-        grouped_pictures.sort(key=lambda x: x["date"], reverse=True)
-
-
-        grouped_pictures = grouped_pictures[offset:offset + max_groups]  
-
-        total_groups = len(pictures_by_date)  # Total de grupos sin limitación
-        total_pages = (total_groups + max_groups - 1) // max_groups  # Redondear hacia arriba
-
-        page_groups = grouped_pictures
-
-        return jsonify({
-            'status': StatusResponse.SUCCESS.value,
-            'message': 'Pictures retrieved successfully',
-            'response': page_groups,
-            'total_pages': total_pages,
-            'current_page': page
-        }), 200
-
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
-
-    finally:
-        if cursor:
-            cursor.close()
-
-
-@pictures_bp.route('/show_picture_from_album_progress', methods=['GET'])
-@token_required
-def show_picture_from_album_progress(token_data, original_token):
-    album_id = request.args.get('album_id', default=1, type=int)
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    max_pictures = request.args.get('max_pictures', default=10, type=int)
-    page = request.args.get('page', default=1, type=int)
-    offset = (page - 1) * max_pictures
-    
-    if not album_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'album_id': album_id})
-
-    cursor = None
-    try:
-        cursor = mysql.connection.cursor()
-        
-        if start_date:
-            try:
-                start_date = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            except ValueError:
-                return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid start_date format'}), 400
-        
-        if end_date:
-            try:
-                end_date = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-            except ValueError:
-                return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid end_date format'}), 400
-        
-        query = """
-            SELECT 
-                path, picture_id, date
-            FROM 
-                picture 
-            WHERE 
-                album_id = %s
-        """
-        
-        params = [album_id]
-        
-        if start_date and end_date:
-            query += " AND date BETWEEN %s AND %s"
-            params.extend([start_date, end_date])
-
-        query += " ORDER BY date ASC LIMIT %s OFFSET %s"
-        params.extend([max_pictures, offset])
-
-        cursor.execute(query, tuple(params))
-        pictures_by_date = {}
-        all_pictures = cursor.fetchall()
-    
-        for picture in all_pictures:
-            path, picture_id, date = picture
-            year_month = date.strftime("%Y-%m")
-            if year_month not in pictures_by_date:
-                pictures_by_date[year_month] = []
-            pictures_by_date[year_month].append({
-                "url": url_for_picture(path),
-                "picture_id": picture_id,
-                "date": date
-            })
-        
-        if pictures_by_date:
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'Pictures retrieved successfully', 'response': pictures_by_date}), 200
-        else:
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'No pictures found', 'response': pictures_by_date}), 200
-
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)}), 500
-
-    finally:
-        if cursor:
-            cursor.close()
-
-
-@pictures_bp.route('/show_picture_from_location', methods=['GET']) 
-@token_required
-def show_picture_from_location(token_data, original_token):
-
-    location_id = request.args.get('location_id' , type=int)
-    page = request.args.get('page', default=1, type=int)
-    quantity = request.args.get('quantity', default=20, type=int)
-    offset = ( page - 1 ) * quantity
-    
-    if not location_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'location_id': location_id})
-    try:
-        cursor = mysql.connection.cursor()
-        query = """
-                    SELECT 
-                        path, picture_id, pic.date
-                    FROM 
-                        album AS al
-                        JOIN picture AS pic
-                        ON al.album_id = pic.album_id 
-                    WHERE 
-                        al.location_id = %s  
-                    LIMIT %s
-                    OFFSET %s
-                """
-        cursor.execute(query,(location_id,quantity, offset))
-        all_pictures = cursor.fetchall()
-        url_all_pictures = []
-        for picture in all_pictures:
-            url_picture = url_for_picture(picture[0]), picture[1], picture[2]
-            
-            if url_picture:
-                url_all_pictures.append(url_picture)
-            else:
-                print("No valido.")
-        if len(url_all_pictures):
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
-        else:
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
-    
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
-    
-    finally:
-        if cursor:
-            cursor.close()
-    
-@pictures_bp.route('/show_picture_from_project', methods = ['GET'])
-@token_required
-def show_picture_from_project(token_data, original_token):
-
-    project_id = request.args.get('project_id', type=int)
-    page = request.args.get('page', default=1, type=int)
-    quantity = request.args.get('quantity', default=20, type=int)
-    offset = ( page - 1 ) * quantity
-    
-    if not project_id:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Parameters not entered', 'project_id': project_id})
-
-    cursor = None
-    try:
-        quantity = int(quantity)
-        cursor = mysql.connection.cursor()
-        query = """
-                    SELECT 
-                        path, picture_id, pic.date
-                    FROM 
-                        project
-                        JOIN location
-                        ON location.project_id = project.project_id
-                        JOIN album as alb
-                        ON alb.location_id = location.location_id
-                        JOIN picture AS pic
-                        ON pic.album_id = alb.album_id
-                    WHERE 
-                        project.project_id = %s
-                    LIMIT %s
-                    OFFSET %s
-                """
-        cursor.execute(query,(project_id,quantity, offset ))
-
-        all_pictures = cursor.fetchall()
-        url_all_pictures = []
-        for picture in all_pictures:
-            url_picture = url_for_picture(picture[0]), picture[1], picture[2]
-            
-            if url_picture:
-                url_all_pictures.append(url_picture)
-            else:
-                print("No valido.")
-        if len(url_all_pictures):
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
-        else:
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
-    
-    except Exception as e:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e)}), 500
-    
-    finally:
-        if cursor:
-            cursor.close()
-    
-
-
 @pictures_bp.route('/delete_picture', methods = ['DELETE'])
 @token_required
 def delete_picture(token_data, original_token):
@@ -626,80 +249,6 @@ def delete_picture(token_data, original_token):
                 entity=Table.picture
         )
 
-#deprecated
-@pictures_bp.route('/download_picture_zip_filter', methods=['POST'])
-@token_required
-def download_picture_zip(token_data, original_token):
-    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
-    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
-    tag = request.form.get('tag', type=int)
-    category = request.form.get('category', type=int)
-    project = request.form.get('project', type=int)
-    score_min_rating = request.form.get('score_min_rating', type=int, default=0)
-    score_max_rating = request.form.get('score_max_rating', type=int, default=3)
-    
-    try:
-        
-        cursor = mysql.connection.cursor()
-        
-        query = """
-            SELECT
-                p.path
-            FROM
-                picture AS p
-                LEFT JOIN rating AS r
-                    ON r.picture_id = p.picture_id
-                LEFT JOIN album AS a
-                    ON p.album_id = a.album_id
-                LEFT JOIN location as l
-                    ON a.location_id = l.location_id
-                LEFT JOIN project as proj
-                    ON proj.project_id = l.project_id
-                LEFT JOIN tag AS t
-                    ON t.tag_id = r.tag_id
-                LEFT JOIN category AS c
-                    ON c.category_id = t.category_id 
-            WHERE
-                p.date BETWEEN %s AND %s
-        """
-        params = [date_begin, date_end]
-        if tag:
-            query += " AND (t.tag_id = %s OR t.tag_id IS NULL)"
-            params.append(tag)
-        if category:
-            query += " AND (c.category_id = %s OR c.category_id IS NULL)"
-            params.append(category)
-        if project:
-            query += " AND (proj.project_id = %s OR proj.project_id IS NULL)"
-            params.append(project)
-        if score_min_rating is not None and score_max_rating is not None:
-            query += " AND (r.score BETWEEN %s AND %s OR r.score IS NULL)"
-            params.extend([score_min_rating, score_max_rating])
-
-        cursor.execute(query, params)
-        
-        path_pictures = []
-        for path in cursor.fetchall():
-            path_pictures.append(path[0])
-        
-        result = '_'.join(str(e).replace(' ', '_') for e in params)
-        
-        zip_file = pictures_to_zip(path_pictures, result)
-
-        return send_file(
-            zip_file,
-            as_attachment=True,
-            download_name='pictures.zip',
-            mimetype='application/zip'
-        )
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    finally:
-        if cursor:
-            cursor.close()
-
-
 @pictures_bp.route('/download_picture_zip_filters', methods=['POST'])
 
 def download_picture_zip_filters():
@@ -710,7 +259,7 @@ def download_picture_zip_filters():
     locations = request.form.getlist('locations', type=int)
     projects = request.form.getlist('projects', type=int)
     scores = request.form.getlist('scores', type=int)
-
+    params_order =  request.form.get('order', type=str)
 
     
     try:
@@ -753,6 +302,8 @@ def download_picture_zip_filters():
         if scores:
             query += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
             params.extend(scores)
+        if params_order:
+            query += f" ORDER BY {params_order}"  
 
         cursor.execute(query, params)
         
@@ -773,73 +324,102 @@ def download_picture_zip_filters():
         )
     except Exception as e:
         1
-
-@pictures_bp.route('/show_picture_filters', methods=['POST'])
-def show_picture_filters():
-    from werkzeug.exceptions import BadRequest
+@pictures_bp.route('/show_picture', methods=['POST'])
+def show_picture():
+    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
+    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
+    tags = request.form.getlist('tags', type=int)
+    albums = request.form.getlist('albums', type=int)
+    locations = request.form.getlist('locations', type=int)
+    projects = request.form.getlist('projects', type=int)
+    scores = request.form.getlist('scores', type=int)
+    params_order = request.form.get('order', type=str)
+    page = request.form.get('page', default=1, type=int)
+    max_groups = request.args.get('max_groups', default=100, type=int)
+    offset = (page - 1) * max_groups
 
     try:
-        # Leer y validar parámetros de entrada
-        date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
-        date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
-        tags = request.form.getlist('tags', type=int)
-        albums = request.form.getlist('albums', type=int)
-        locations = request.form.getlist('locations', type=int)
-        projects = request.form.getlist('projects', type=int)
-        scores = request.form.getlist('scores', type=int)
+        
+        if scores and not tags:
+            return jsonify({"status": "error", "message": "You must enter tags to filter scores."}), 400
 
-        # Validar formato de fechas
         try:
             date_begin = datetime.strptime(date_begin, '%Y-%m-%d').date()
             date_end = datetime.strptime(date_end, '%Y-%m-%d').date()
         except ValueError:
-           return ({'status': StatusResponse.ERROR.value, 'message' : 'Las fechas deben tener el formato YYYY-MM-DD'})
+            return jsonify({"status": "error", "message": "Dates must be in YYYY-MM-DD format."}), 400
 
         if date_end < date_begin:
-            return ({'status': StatusResponse.ERROR.value, 'message' : 'La fecha de inicio no puede ser mayor que la fecha de fin.'})
+            return jsonify({"status": "error", "message": "Start date cannot be after end date."}), 400
+
+        valid_order_options = {
+            "r.rating asc": "r.rating ASC",
+            "r.rating desc": "r.rating DESC",
+            "p.date asc": "p.date ASC",
+            "p.date desc": "p.date DESC"
+        }
+        order_clause = valid_order_options.get(params_order.lower()) if params_order else ""
 
         cursor = mysql.connection.cursor()
 
-        query = """
-            SELECT p.path
-            FROM picture AS p
-            LEFT JOIN rating AS r ON r.picture_id = p.picture_id
-            LEFT JOIN album AS a ON p.album_id = a.album_id
-            LEFT JOIN location AS l ON a.location_id = l.location_id
-            LEFT JOIN project AS proj ON proj.project_id = l.project_id
-            LEFT JOIN tag AS t ON t.tag_id = r.tag_id
-            LEFT JOIN category AS c ON c.category_id = t.category_id 
-            WHERE p.date BETWEEN %s AND %s
-        """
+        base_query = "FROM picture AS p"
+        joins = []
+        where = " WHERE p.date BETWEEN %s AND %s"
         params = [date_begin, date_end]
 
-        if tags:
-            query += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
-            params.extend(tags)
-        if locations:
-            query += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
-            params.extend(locations)
-        if albums:
-            query += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
-            params.extend(albums)
-        if projects:
-            query += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
-            params.extend(projects)
-        if scores:
-            query += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
-            params.extend(scores)
+        if scores and tags:
+            joins.append("""
+                INNER JOIN rating AS r ON r.picture_id = p.picture_id
+                INNER JOIN tag AS t ON t.tag_id = r.tag_id
+            """)
+            where += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
+            where += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
+            params.extend(scores + tags)
 
-        cursor.execute(query, params)
-        path_pictures = [path[0] for path in cursor.fetchall()]
+        if locations:
+            joins.append("INNER JOIN location AS l ON l.location_id = l.location_id")
+            where += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
+            params.extend(locations)
+
+        if albums:
+            joins.append("INNER JOIN album AS a ON p.album_id = a.album_id")
+            where += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
+            params.extend(albums)
+
+        if projects:
+            joins.append("INNER JOIN project AS proj ON proj.project_id = proj.project_id")
+            where += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
+            params.extend(projects)
+
+
+        count_query = f"SELECT COUNT(*) {base_query} {' '.join(joins)} {where}"
+        cursor.execute(count_query, params)
+        total_results = cursor.fetchone()[0]
+
+        select_query = f"""
+            SELECT p.path, p.date
+            {base_query} {' '.join(joins)} {where}
+        """
+        if order_clause:
+            select_query += f" ORDER BY {order_clause}"
+        select_query += " LIMIT %s OFFSET %s"
+        params.extend([max_groups, offset])
+
+        cursor.execute(select_query, params)
+        results = cursor.fetchall()
+
+        path_pictures = [{"url": url_for_picture(path[0]), "date": path[1]} for path in results]
+        total_pages = (total_results + max_groups - 1) // max_groups  
 
         if not path_pictures:
             return jsonify({
                 "status": "success",
-                "message": "No se encontraron imágenes para los filtros especificados."
+                "message": "No images found for the specified filters."
             }), 404
 
         return jsonify({
             "status": "success",
+            "total_pages": total_pages,
             "filtered_pictures": path_pictures,
             "filter_params": {
                 "date_begin": str(date_begin),
@@ -848,17 +428,13 @@ def show_picture_filters():
                 "albums": albums,
                 "locations": locations,
                 "projects": projects,
-                "scores": scores
+                "scores": scores,
+                "order": params_order
             }
         }), 200
 
-    except BadRequest as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 400
     except Exception as e:
-        1
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @pictures_bp.route('/show_path_picture', methods = ['GET'])
 
