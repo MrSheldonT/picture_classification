@@ -418,7 +418,7 @@ def show_picture():
         total_results = cursor.fetchone()[0]
 
         select_query = f"""
-            SELECT p.path, p.date
+            SELECT p.path, p.date, p.picture_id
             {base_query} {' '.join(joins)} {where}
         """
         if order_clause:
@@ -429,14 +429,14 @@ def show_picture():
         cursor.execute(select_query, params)
         results = cursor.fetchall()
 
-        path_pictures = [{"url": url_for_picture(path[0]), "date": path[1]} for path in results]
+        path_pictures = [{"url": url_for_picture(path[0]), "date": path[1],"id":path[2]} for path in results]
         total_pages = (total_results + max_groups - 1) // max_groups  
 
         if not path_pictures:
             return jsonify({
                 "status": "success",
                 "message": "No images found for the specified filters."
-            }), 404
+            }), 200
 
         return jsonify({
             "status": "success",
