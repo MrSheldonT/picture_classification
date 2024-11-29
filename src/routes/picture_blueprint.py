@@ -701,16 +701,18 @@ def download_picture_zip(token_data, original_token):
 
 
 @pictures_bp.route('/download_picture_zip_filters', methods=['POST'])
-@token_required
-def download_picture_zip_filters(token_data, original_token):
+
+def download_picture_zip_filters():
     date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
     date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
     tags = request.form.getlist('tags', type=int)
-    categories = request.form.getlist('categories', type=int)
+    albums = request.form.getlist('albums', type=int)
+    locations = request.form.getlist('locations', type=int)
     projects = request.form.getlist('projects', type=int)
     scores = request.form.getlist('scores', type=int)
+
+
     
-    print("-------------------",tags,"------------")
     try:
         cursor = mysql.connection.cursor()
         query = """
@@ -734,26 +736,30 @@ def download_picture_zip_filters(token_data, original_token):
                 p.date BETWEEN %s AND %s
         """ 
         params = [date_begin, date_end]
+
+
         if tags:
-            query += f" AND (t.tag_id IN ({', '.join(['%s'] * len(tags))}))"
+            query += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
             params.extend(tags)
-        if categories:
-            query += f" AND (c.category_id IN ({', '.join(['%s'] * len(categories))}))"
-            params.extend(categories)
+        if locations:
+            query += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
+            params.extend(locations)
+        if albums:
+            query += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
+            params.extend(albums)
         if projects:
-            query += f" AND (proj.project_id IN ({', '.join(['%s'] * len(projects))}))"
+            query += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
             params.extend(projects)
         if scores:
-            query += f" AND (r.score IN ({', '.join(['%s'] * len(scores))}))"
+            query += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
             params.extend(scores)
-        
-        
+
         cursor.execute(query, params)
         
-        path_pictures = []
-        
-        for path in cursor.fetchall():
-            path_pictures.append(path[0])
+        path_pictures = [path[0] for path in cursor.fetchall()]
+
+        if not path_pictures:
+            return jsonify({"status": StatusResponse.SUCCESS ,"message": "No pictures found for the specified filters."}), 404
         
         result = '_'.join(str(e).replace(' ', '_') for e in params)
         
@@ -762,7 +768,7 @@ def download_picture_zip_filters(token_data, original_token):
         return send_file(
             zip_file,
             as_attachment=True,
-            download_name='task.zip',
+            download_name=f'{result}.zip',
             mimetype='application/zip'
         )
     except Exception as e:
@@ -774,69 +780,89 @@ def download_picture_zip_filters(token_data, original_token):
 
 @pictures_bp.route('/show_picture_filters', methods=['POST'])
 def show_picture_filters():
-    date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
-    date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
-    tags = request.form.getlist('tags', type=int)
-    categories = request.form.getlist('categories', type=int)
-    projects = request.form.getlist('projects', type=int)
-    scores = request.form.getlist('scores', type=int)
-    
+    from werkzeug.exceptions import BadRequest
+
     try:
+        # Leer y validar parámetros de entrada
+        date_begin = request.form.get('date_begin', type=str, default='2000-01-01')
+        date_end = request.form.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
+        tags = request.form.getlist('tags', type=int)
+        albums = request.form.getlist('albums', type=int)
+        locations = request.form.getlist('locations', type=int)
+        projects = request.form.getlist('projects', type=int)
+        scores = request.form.getlist('scores', type=int)
+
+        # Validar formato de fechas
+        try:
+            date_begin = datetime.strptime(date_begin, '%Y-%m-%d').date()
+            date_end = datetime.strptime(date_end, '%Y-%m-%d').date()
+        except ValueError:
+           return ({'status': StatusResponse.ERROR.value, 'message' : 'Las fechas deben tener el formato YYYY-MM-DD'})
+
+        if date_end < date_begin:
+            return ({'status': StatusResponse.ERROR.value, 'message' : 'La fecha de inicio no puede ser mayor que la fecha de fin.'})
+
         cursor = mysql.connection.cursor()
+
         query = """
-            SELECT
-                p.path
-            FROM
-                picture AS p
-                LEFT JOIN rating AS r
-                    ON r.picture_id = p.picture_id
-                LEFT JOIN album AS a
-                    ON p.album_id = a.album_id
-                LEFT JOIN location as l
-                    ON a.location_id = l.location_id
-                LEFT JOIN project as proj
-                    ON proj.project_id = l.project_id
-                LEFT JOIN tag AS t
-                    ON t.tag_id = r.tag_id
-                LEFT JOIN category AS c
-                    ON c.category_id = t.category_id 
-            WHERE
-                p.date BETWEEN %s AND %s
+            SELECT p.path
+            FROM picture AS p
+            LEFT JOIN rating AS r ON r.picture_id = p.picture_id
+            LEFT JOIN album AS a ON p.album_id = a.album_id
+            LEFT JOIN location AS l ON a.location_id = l.location_id
+            LEFT JOIN project AS proj ON proj.project_id = l.project_id
+            LEFT JOIN tag AS t ON t.tag_id = r.tag_id
+            LEFT JOIN category AS c ON c.category_id = t.category_id 
+            WHERE p.date BETWEEN %s AND %s
         """
         params = [date_begin, date_end]
+
         if tags:
-            query += f" AND (t.tag_id IN ({', '.join(['%s'] * len(tags))}))"
+            query += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
             params.extend(tags)
-        if categories:
-            query += f" AND (c.category_id IN ({', '.join(['%s'] * len(categories))}))"
-            params.extend(categories)
+        if locations:
+            query += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
+            params.extend(locations)
+        if albums:
+            query += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
+            params.extend(albums)
         if projects:
-            query += f" AND (proj.project_id IN ({', '.join(['%s'] * len(projects))}))"
+            query += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
             params.extend(projects)
         if scores:
-            query += f" AND (r.score IN ({', '.join(['%s'] * len(scores))}))"
+            query += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
             params.extend(scores)
-        
+
         cursor.execute(query, params)
-        path_pictures = [url_for_picture(path[0]) for path in cursor.fetchall()]
-        
+        path_pictures = [path[0] for path in cursor.fetchall()]
+
+        if not path_pictures:
+            return jsonify({
+                "status": "success",
+                "message": "No se encontraron imágenes para los filtros especificados."
+            }), 404
+
         return jsonify({
+            "status": "success",
             "filtered_pictures": path_pictures,
             "filter_params": {
-                "date_begin": date_begin,
-                "date_end": date_end,
+                "date_begin": str(date_begin),
+                "date_end": str(date_end),
                 "tags": tags,
-                "categories": categories,
+                "albums": albums,
+                "locations": locations,
                 "projects": projects,
                 "scores": scores
             }
         }), 200
-    except Exception as e:
-        return jsonify({
-            "status": StatusResponse.ERROR.value,
-            "message": str(e)
-        }), 500
 
+    except BadRequest as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 400
+    except Exception as e:
+        1
     # date_begin -> fecha normal
     # date_end -> fecha normal
     # tag = ('tag_1', 'tag_2', ... ) | ()
