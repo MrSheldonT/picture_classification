@@ -259,62 +259,83 @@ def download_picture_zip_filters():
     locations = request.form.getlist('locations', type=int)
     projects = request.form.getlist('projects', type=int)
     scores = request.form.getlist('scores', type=int)
-    params_order =  request.form.get('order', type=str)
+    params_order = request.form.get('order', type=str)
+    page = request.form.get('page', default=1, type=int)
+    max_groups = request.form.get('max_groups', default=100, type=int)
+    offset = (page - 1) * max_groups
 
-    
     try:
+        
+        if scores and not tags:
+            return jsonify({"status": "error", "message": "You must enter tags to filter scores."}), 400
+
+        try:
+            date_begin = datetime.strptime(date_begin, '%Y-%m-%d').date()
+            date_end = datetime.strptime(date_end, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({"status": "error", "message": "Dates must be in YYYY-MM-DD format."}), 400
+
+        if date_end < date_begin:
+            return jsonify({"status": "error", "message": "Start date cannot be after end date."}), 400
+
+        valid_order_options = {
+            "r.rating asc": "r.rating ASC",
+            "r.rating desc": "r.rating DESC",
+            "p.date asc": "p.date ASC",
+            "p.date desc": "p.date DESC"
+        }
+        order_clause = valid_order_options.get(params_order.lower()) if params_order else ""
+
         cursor = mysql.connection.cursor()
-        query = """
-            SELECT
-                p.path
-            FROM
-                picture AS p
-                LEFT JOIN rating AS r
-                    ON r.picture_id = p.picture_id
-                LEFT JOIN album AS a
-                    ON p.album_id = a.album_id
-                LEFT JOIN location as l
-                    ON a.location_id = l.location_id
-                LEFT JOIN project as proj
-                    ON proj.project_id = l.project_id
-                LEFT JOIN tag AS t
-                    ON t.tag_id = r.tag_id
-                LEFT JOIN category AS c
-                    ON c.category_id = t.category_id 
-            WHERE
-                p.date BETWEEN %s AND %s
-        """ 
+
+        base_query = "FROM picture AS p"
+        joins = []
+        where = " WHERE p.date BETWEEN %s AND %s"
         params = [date_begin, date_end]
 
+        if scores and tags:
+            joins.append("""
+                INNER JOIN rating AS r ON r.picture_id = p.picture_id
+                INNER JOIN tag AS t ON t.tag_id = r.tag_id
+            """)
+            where += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
+            where += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
+            params.extend(scores + tags)
 
-        if tags:
-            query += f" AND t.tag_id IN ({', '.join(['%s'] * len(tags))})"
-            params.extend(tags)
         if locations:
-            query += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
+            joins.append("INNER JOIN location AS l ON l.location_id = l.location_id")
+            where += f" AND l.location_id IN ({', '.join(['%s'] * len(locations))})"
             params.extend(locations)
+
         if albums:
-            query += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
+            joins.append("INNER JOIN album AS a ON p.album_id = a.album_id")
+            where += f" AND a.album_id IN ({', '.join(['%s'] * len(albums))})"
             params.extend(albums)
+
         if projects:
-            query += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
+            joins.append("INNER JOIN project AS proj ON proj.project_id = proj.project_id")
+            where += f" AND proj.project_id IN ({', '.join(['%s'] * len(projects))})"
             params.extend(projects)
-        if scores:
-            query += f" AND r.score IN ({', '.join(['%s'] * len(scores))})"
-            params.extend(scores)
-        if params_order:
-            query += f" ORDER BY {params_order}"  
 
-        cursor.execute(query, params)
-        
-        path_pictures = [path[0] for path in cursor.fetchall()]
 
+        select_query = f"""
+            SELECT p.path, p.date, p.album_id
+            {base_query} {' '.join(joins)} {where}
+        """
+        if order_clause:
+            select_query += f" ORDER BY {order_clause}"
+        select_query += " LIMIT %s OFFSET %s"
+        params.extend([max_groups, offset])
+
+        cursor.execute(select_query, params)
+        results = cursor.fetchall()
+
+        path_pictures = [{"path_os": path[0], "date": path[1], "album": path[2]} for path in results]
         if not path_pictures:
-            return jsonify({"status": StatusResponse.SUCCESS ,"message": "No pictures found for the specified filters."}), 404
-        
+            return jsonify({"status": StatusResponse.SUCCESS.value ,"message": "No pictures found for the specified filters."}), 404
+        print(len(path_pictures))
         result = '_'.join(str(e).replace(' ', '_') for e in params)
-        
-        zip_file = pictures_to_zip(path_pictures, result)
+        zip_file = pictures_to_zip(path_pictures)
 
         return send_file(
             zip_file,
