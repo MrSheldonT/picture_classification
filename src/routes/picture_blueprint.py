@@ -335,7 +335,7 @@ def show_picture():
     scores = request.form.getlist('scores', type=int)
     params_order = request.form.get('order', type=str)
     page = request.form.get('page', default=1, type=int)
-    max_groups = request.args.get('max_groups', default=100, type=int)
+    max_groups = request.form.get('max_groups', default=100, type=int)
     offset = (page - 1) * max_groups
 
     try:
