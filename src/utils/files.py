@@ -57,27 +57,33 @@ def url_for_picture(full_path):
     else:
         return None
     
+
+
 def pictures_to_zip(paths):
-    zip_buffer = io.BytesIO()
-    
+    zip_buffer = io.BytesIO() 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for path in paths:
-            file_path = path["path_os"]
+            file_path = path["path"]
+            
             if not os.path.exists(file_path):
                 print(f"El archivo no existe: {file_path}")
-                continue
-            
-            
+                continue  
             original_name = os.path.basename(file_path)
             name_without_ext, ext = os.path.splitext(original_name)
-            new_name = "Date_" + str(path["date"]) + "_album_" + str(path["album"]) + "_id_" + f"{name_without_ext}_{ext}".strip("_") 
+
+            name_parts = []
+
+            for column, value in path.items():
+               
+                if column != "path":  
+                    name_parts.append(f"[{column}_{value}]")
             
+            new_name = "_".join(name_parts) + f"_id_{name_without_ext}_{ext.strip('_')}"
+
             try:
-                # Agregar el archivo al ZIP
                 zipf.write(file_path, arcname=new_name)
             except Exception as e:
                 print(f"Error al agregar {file_path} al ZIP: {e}")
 
-            
-    zip_buffer.seek(0)
+    zip_buffer.seek(0)  
     return zip_buffer
