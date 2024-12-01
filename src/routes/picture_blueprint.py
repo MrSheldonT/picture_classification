@@ -494,7 +494,8 @@ def download_picture_zip():
     if projects:
         if not locations:
             locations = get_locations_by_project(projects_id=projects)
-    if not locations:
+   
+    if locations:
         if not albums:
             albums = get_albums_by_location(locations_id=locations)
         
@@ -621,16 +622,23 @@ def show_picture():
 
     if tags and not scores:
        scores = [0, 0.5, 1, 1.5, 2, 2.5, 3 ]
+    try:
+        if projects:
+            if not locations:
+                locations = get_locations_by_project(projects_id=projects)
 
-    if projects:
-        if not locations:
-            locations = get_locations_by_project(projects_id=projects)
-        if not albums:
-            albums = get_albums_by_location(locations_id=locations)
+        if locations:
+            if not albums:
+                albums = get_albums_by_location(locations_id=locations)
         
-    if date_end < date_begin:
-            return jsonify({"status": "error", "message": "Start date cannot be after end date."}), 400
-
+        if projects and len(locations) == 0: # si a pesar de buscar los locations no existe nada, significa que o le das un proyecto que no tiene nada o que no tienen nada dentro
+                locations.append(-1)
+        if locations and len(albums) == 0:
+                albums.append(-1)
+        if date_end < date_begin:
+                return jsonify({"status": "error", "message": "Start date cannot be after end date."}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)})
     try:
 
         try:
@@ -691,7 +699,9 @@ def show_picture():
             params.extend(tags)
 
         
+        
         count_query = f"SELECT COUNT(*) {base_query} {' '.join(joins)}  WHERE {' AND '.join(where_clauses)} "
+
         cursor = mysql.connection.cursor()
         cursor.execute(count_query, params)
         total_results = cursor.fetchone()[0]
@@ -700,7 +710,6 @@ def show_picture():
         SELECT {', '.join(column)}
         {base_query} {' '.join(joins)} WHERE {' AND '.join(where_clauses)}
         """
-
         if order_clause:
             select_query += f" ORDER BY {order_clause}"
         select_query += " LIMIT %s OFFSET %s"
@@ -726,11 +735,6 @@ def show_picture():
         
         total_pages = (total_results + quantity - 1) // quantity  
 
-        if not path_pictures:
-            return jsonify({
-                "status": StatusResponse.SUCCESS.value,
-                "message": "No images found for the specified filters."
-            }), 200
 
         return jsonify({
             "status": StatusResponse.SUCCESS.value,
@@ -744,7 +748,7 @@ def show_picture():
                 "locations": locations,
                 "projects": projects,
                 "ratings": scores,
-                "order": params_order
+                "order": order_clause
             }
         }), 200
 
