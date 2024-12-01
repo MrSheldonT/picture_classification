@@ -471,7 +471,7 @@ def show_picture_from_project(token_data, original_token):
 
 
 
-@pictures_bp.route('/download_picture_zip', methods=['get'])
+@pictures_bp.route('/download_picture_zip', methods=['GET'])
 
 def download_picture_zip():
 
@@ -494,6 +494,7 @@ def download_picture_zip():
     if projects:
         if not locations:
             locations = get_locations_by_project(projects_id=projects)
+    if not locations:
         if not albums:
             albums = get_albums_by_location(locations_id=locations)
         
