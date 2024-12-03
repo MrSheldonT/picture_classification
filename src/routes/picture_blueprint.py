@@ -411,7 +411,7 @@ def show_path_picture():
             "project_id": result[3],
             "album_name": result[4],
             "location_name": result[5],
-            "album_name": result[6]
+            "project_name": result[6]
         }
 
         return jsonify({"status": StatusResponse.SUCCESS.value, "image": response_data})
