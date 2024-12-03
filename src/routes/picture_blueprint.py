@@ -382,6 +382,9 @@ def show_path_picture():
                         , a.album_id
                         , l.location_id
                         , pr.project_id
+                        , a.name
+                        , l.name
+                        , pr.name
                     FROM
                         picture AS p
                         JOIN album AS a
@@ -394,6 +397,8 @@ def show_path_picture():
                         p.picture_id = %s
                 """
         
+       
+        
         cursor.execute(query, (picture_id,))
         result = cursor.fetchone()
         if not result:
@@ -403,7 +408,10 @@ def show_path_picture():
             "picture_id": result[0],
             "album_id": result[1],
             "location_id": result[2],
-            "project_id": result[3]
+            "project_id": result[3],
+            "album_name": result[4],
+            "location_name": result[5],
+            "album_name": result[6]
         }
 
         return jsonify({"status": StatusResponse.SUCCESS.value, "image": response_data})
@@ -662,7 +670,7 @@ def show_picture():
         order_clause = valid_order_options.get(params_order.lower()) if params_order else ""
         
         base_query = "FROM picture AS p"
-        column  = [ "p.path", "p.date"]
+        column  = [ "p.path", "p.date","p.picture_id"]
         joins = []
         where_clauses = ["p.date BETWEEN %s AND %s"]
         params = [date_begin, date_end]
@@ -728,6 +736,8 @@ def show_picture():
                 attribute = attribute.split('.')[-1]
                 if attribute == "path":
                     picture_data['url'] = url_for_picture(path[i])
+                elif attribute == "picture_id":
+                    picture_data['id'] = path[i]
                 else:
                     picture_data[attribute] = path[i]
 
