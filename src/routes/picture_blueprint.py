@@ -308,12 +308,11 @@ def show_picture():
 
     page = request.args.get('page', default=1, type=int)
     quantity = request.args.get('quantity', default=100, type=int)
-    offset = (page - 1) * quantity
 
     try:
         cursor = mysql.connection.cursor()
         
-        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order=params_order )
+        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order=params_order, quantity=quantity )
         
         total_results = result['total_results']
         filter_images = result['filter_images']
@@ -394,9 +393,7 @@ def get_pictures_by_album(albums_id):
     return  pictures
 
 
-def build_query(albums, locations, projects, tags, scores, params_order="", page=1, quantity=100, date_begin='2000-01-01', date_end=datetime.today().strftime('%Y-%m-%d')):
-
-
+def build_query(albums, locations, projects, tags, scores, params_order="", page=1, quantity=20, date_begin='2000-01-01', date_end=datetime.today().strftime('%Y-%m-%d')):
     offset = (page - 1) * quantity
 
     if tags and not scores:
@@ -480,30 +477,32 @@ def build_query(albums, locations, projects, tags, scores, params_order="", page
             column.append("t.tag_id")
             params.extend(tags)
 
-        count_query = f"SELECT COUNT(*) {base_query} {' '.join(joins)}  WHERE {' AND '.join(where_clauses)} "
-
+        count_query = f"SELECT COUNT(*) {base_query} {' '.join(joins)}  WHERE {' AND '.join(where_clauses)} "        
         select_query = f"""
         SELECT {', '.join(column)}
         {base_query} {' '.join(joins)} WHERE {' AND '.join(where_clauses)}
         """
+
         
         if order_clause:
-            select_query += f" ORDER BY {order_clause}"
-            select_query += " LIMIT %s OFFSET %s"
-            params.append(order_clause)
+            select_query += f"ORDER BY {order_clause}"
+            count_query += f"ORDER BY {order_clause}"
         
+        count_query += " LIMIT %s OFFSET %s"
+        select_query += " LIMIT %s OFFSET %s"
+
+        params.append(quantity)
+        params.append(offset)
 
         cursor = mysql.connection.cursor()        
         cursor.execute(count_query, params)
         total_results = cursor.fetchone()[0]        
-        
         cursor.execute(select_query, params)   
         images = cursor.fetchall()
-        
+
         filter_images = []
-
         processed_columns = [col.split('.', 1)[1] for col in column]
-
+        
         filter_images = []
         for row in images:
             temp = {}
