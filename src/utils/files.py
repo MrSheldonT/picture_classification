@@ -78,7 +78,7 @@ def pictures_to_zip(paths):
                 if column != "path":  
                     name_parts.append(f"[{column}_{value}]")
             
-            new_name = "_".join(name_parts) + f"_id_{name_without_ext}_{ext.strip('_')}"
+            new_name = "_".join(name_parts) + f"[{name_without_ext}]{ext.strip('_')}"
 
             try:
                 zipf.write(file_path, arcname=new_name)
