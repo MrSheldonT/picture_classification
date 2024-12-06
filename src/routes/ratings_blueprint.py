@@ -36,7 +36,7 @@ def create_rating(token_data, original_token):
         """
         cursor.execute(query,(picture_id, tag_id, token_data['user_id'] ))
         response = cursor.fetchone()
-        print(response)
+        
         if response is not None:
             return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The rating already exists'})
         
@@ -45,13 +45,10 @@ def create_rating(token_data, original_token):
                         rating(picture_id, user_id, score, date, tag_id)
                     VALUES(%s, %s, %s, %s, %s)
                 """
+        print(picture_id,  token_data['user_id'], rating_score, rating_date, tag_id)
         cursor.execute(query,(picture_id, token_data['user_id'], rating_score, rating_date, tag_id))
         mysql.connection.commit()
-        select_query = """
-            SELECT rating_id FROM rating WHERE picture_id=%s AND user_id=%s AND tag_id=%s
-        """
-        cursor.execute(select_query,(picture_id, token_data['user_id'],tag_id))
-        response2 = cursor.fetchall()
+ 
         status_response = StatusResponse.SUCCESS
         message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id,'rating_id':response2[0][0] }
 

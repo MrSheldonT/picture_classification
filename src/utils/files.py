@@ -57,21 +57,33 @@ def url_for_picture(full_path):
     else:
         return None
     
-def pictures_to_zip(paths, parameters):
-    zip_buffer = io.BytesIO()
-    
+
+
+def pictures_to_zip(paths):
+    zip_buffer = io.BytesIO() 
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for path in paths:
-            if not os.path.exists(path):
-                raise FileNotFoundError(f"El archivo no existe: {path}")
+            file_path = path["path"]
             
-            original_name = os.path.basename(path)        
-            new_name = f"{parameters}_{os.path.splitext(original_name)[0]}_{os.path.splitext(original_name)[1]}"
-            
-            with open(path, 'rb') as file:
-                content = file.read()
-            
-            zipf.writestr(new_name, content)
+            if not os.path.exists(file_path):
+                print(f"El archivo no existe: {file_path}")
+                continue  
+            original_name = os.path.basename(file_path)
+            name_without_ext, ext = os.path.splitext(original_name)
 
-    zip_buffer.seek(0)
+            name_parts = []
+
+            for column, value in path.items():
+               
+                if column != "path":  
+                    name_parts.append(f"[{column}_{value}]")
+            
+            new_name = "_".join(name_parts) + f"[{name_without_ext}]{ext.strip('_')}"
+
+            try:
+                zipf.write(file_path, arcname=new_name)
+            except Exception as e:
+                print(f"Error al agregar {file_path} al ZIP: {e}")
+
+    zip_buffer.seek(0)  
     return zip_buffer

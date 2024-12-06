@@ -34,12 +34,12 @@ CREATE TABLE picture (
 
 CREATE TABLE category (
     category_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50)
+    name VARCHAR(100)
 );
 
 CREATE TABLE tag (
     tag_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(50) NOT NULL,
     category_id INT
 );
 
@@ -48,7 +48,7 @@ CREATE TABLE user (
     email VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(50) UNIQUE NOT NULL,
     password CHAR(60) NOT NULL,
-    confirmed_on  TINYINT(1) NOT NULL
+    confirmed_on  TINYINT(1) NOT NULL DEFAULT 1
 );
 
 CREATE TABLE rating (
