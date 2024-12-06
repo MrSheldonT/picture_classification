@@ -6,6 +6,7 @@ from utils.database_verification import exist_record_in_table
 from utils.audit import Table, StatusResponse, Transaccion, register_audit
 from utils.message_status import Status
 from datetime import datetime
+from math import ceil
 
 import os
 
@@ -252,7 +253,7 @@ def delete_picture(token_data, original_token):
 
 @pictures_bp.route('/download_picture_zip', methods=['GET'])
 @token_required
-def download_picture_zip():
+def download_picture_zip(token_data, original_token):
 
     date_begin = request.args.get('date_begin', type=str, default='2000-01-01')
     date_end = request.args.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
@@ -279,7 +280,6 @@ def download_picture_zip():
         name_zip += ( '[' + "_".join(locations) + ']' ) if locations else "" 
         name_zip += ( '[' + "_".join(projects) + ']' ) if projects else "" 
         name_zip += ( '[' + "_".join(scores) + ']' ) if scores else ""
-        print(path_pictures)
         zip_file = pictures_to_zip(path_pictures)
         return send_file(
             zip_file,
@@ -292,7 +292,7 @@ def download_picture_zip():
 
 @pictures_bp.route('/show_path_picture', methods = ['GET'])
 @token_required
-def show_path_picture():
+def show_path_picture(token_data, original_token):
     picture_id = request.args.get('picture_id')
     
     if not picture_id:
@@ -345,8 +345,8 @@ def show_path_picture():
         cursor.close()
 
 @pictures_bp.route('/show_picture', methods=['GET'])
-@token_required
-def show_picture():
+def show_picture(): #not token
+
    
     date_begin = request.args.get('date_begin', type=str, default='2000-01-01')
     date_end = request.args.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
@@ -372,9 +372,8 @@ def show_picture():
         for image in filter_images:
             image['url'] = url_for_picture(image['path'])
             image['id'] = image['picture_id'] # esto pq merlin no quiere usar picture_id cawn
-        total_pages = (total_results) // quantity  
-        print(quantity)
-
+        total_pages = ceil(total_results / quantity)
+        print("---------------",total_results, quantity, ceil(total_results / quantity), total_pages, "---------------")
         return jsonify({
             "status": StatusResponse.SUCCESS.value,
             "total_results": total_results,
@@ -396,6 +395,7 @@ def show_picture():
         }), 200
 
     except Exception as e:
+          print(str(e), "---------------")
           return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)}), 500
 
 def get_locations_by_project(projects_id):
@@ -546,7 +546,7 @@ def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1
         """        
         
         count_query = f"SELECT COUNT(*) FROM ({select_query}) as count_query"
-        print(select_query, count_query)                
+        
         cursor.execute(count_query, params)
         total_results = cursor.fetchone()[0]
 
