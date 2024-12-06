@@ -135,7 +135,7 @@ def update_status_user(token_data, original_token):
                 """
         cursor.execute(query, (user_status, user_id))
         mysql.connection.commit()
-        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED.value, 'user_id': user_id}
+        message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': Status.SUCCESSFULLY_UPDATED.value, 'user_id': user_id}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_endpoint), 200
     except Exception as e:

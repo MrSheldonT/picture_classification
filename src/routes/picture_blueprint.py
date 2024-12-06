@@ -88,6 +88,7 @@ def upload_picture(token_data, original_token):
 @pictures_bp.route('/uploads/<filename>')
 def serve_image(filename):
     upload_folder = current_app.config['UPLOAD_FOLDER']
+
     return send_from_directory(upload_folder, filename)
 
 @pictures_bp.route('/picture', methods=['GET'])
@@ -250,7 +251,7 @@ def delete_picture(token_data, original_token):
         )
 
 @pictures_bp.route('/download_picture_zip', methods=['GET'])
-
+@token_required
 def download_picture_zip():
 
     date_begin = request.args.get('date_begin', type=str, default='2000-01-01')
@@ -262,18 +263,14 @@ def download_picture_zip():
     projects = request.args.getlist('projects', type=int) # No es estrictamente necesario, pero deberá de existir album por lo menos si desears filtrar, de lo contrario enseñará todo
     scores = request.args.getlist('scores', type=float) # Nada que aclarar, solo son valores del [0.0 - 3.0]
 
-    page = request.args.get('page', default=1, type=int)
     quantity = request.args.get('quantity', default=100, type=int)
-    offset = (page - 1) * quantity
 
     try:
-        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order="" )
+        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order="", quantity=quantity )
         
-        total_results = result['total_results'] 
-        column = result['column']
         path_pictures = result['filter_images']
         
-        if not result['filter_images']:
+        if not path_pictures:
             return jsonify({"status": StatusResponse.SUCCESS.value ,"message": "No pictures found for the specified filters."}), 404
 
         name_zip = '[' + str(date_begin) + ']' + '[' + str(date_end)  + ']' 
@@ -282,7 +279,7 @@ def download_picture_zip():
         name_zip += ( '[' + "_".join(locations) + ']' ) if locations else "" 
         name_zip += ( '[' + "_".join(projects) + ']' ) if projects else "" 
         name_zip += ( '[' + "_".join(scores) + ']' ) if scores else ""
-
+        print(path_pictures)
         zip_file = pictures_to_zip(path_pictures)
         return send_file(
             zip_file,
@@ -293,8 +290,62 @@ def download_picture_zip():
     except Exception as e:
         return jsonify({"status": StatusResponse.ERROR  ,"message": str(e)})
 
+@pictures_bp.route('/show_path_picture', methods = ['GET'])
+@token_required
+def show_path_picture():
+    picture_id = request.args.get('picture_id')
+    
+    if not picture_id:
+        return jsonify({"status":StatusResponse.ERROR.value, "message": Status.NOT_ENTERED.value})
+    cursor = ""
+    try:
+        cursor = mysql.connection.cursor()
+
+        query = """
+                    SELECT
+                        p.picture_id
+                        , a.album_id
+                        , l.location_id
+                        , pr.project_id
+                        , a.name
+                        , l.name
+                        , pr.name
+                    FROM
+                        picture AS p
+                        JOIN album AS a
+                        ON a.album_id = p.album_id
+                        JOIN location AS l
+                        ON l.location_id = a.location_id
+                        JOIN project AS pr
+                        ON pr.project_id = l.location_id 
+                    WHERE
+                        p.picture_id = %s
+                """
+    
+        cursor.execute(query, (picture_id,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({"status": StatusResponse.ERROR.value, "message": Status.RECORD_NOT_FOUND.value})
+
+        response_data = {
+            "picture_id": result[0],
+            "album_id": result[1],
+            "location_id": result[2],
+            "project_id": result[3],
+            "album_name": result[4],
+            "location_name": result[5],
+            "project_name": result[6]
+        }
+
+        return jsonify({"status": StatusResponse.SUCCESS.value, "image": response_data})
+
+    except Exception as e:
+        return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)})
+    finally:
+        cursor.close()
 
 @pictures_bp.route('/show_picture', methods=['GET'])
+@token_required
 def show_picture():
    
     date_begin = request.args.get('date_begin', type=str, default='2000-01-01')
@@ -303,6 +354,7 @@ def show_picture():
     albums = request.args.getlist('albums', type=int) # Si no hay, debo conseguirlo con get_albums by location
     locations = request.args.getlist('locations', type=int) #Si no hay, debo conseguirlo con get_locations by project
     projects = request.args.getlist('projects', type=int) # No es estrictamente necesario, pero deberá de existir album por lo menos si desears filtrar, de lo contrario enseñará todo
+    rating = request.args.get('rating', type=int, default=1)
     scores = request.args.getlist('scores', type=float) # Nada que aclarar, solo son valores del [0.0 - 3.0]
     params_order = request.args.get('order', type=str) # Manera de ordenar, desc/asc por fecha y score, no puedes ordenar por score si no existe score wei
 
@@ -310,20 +362,22 @@ def show_picture():
     quantity = request.args.get('quantity', default=100, type=int)
 
     try:
-        cursor = mysql.connection.cursor()
         
-        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order=params_order, quantity=quantity )
+        result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order=params_order, quantity=quantity, ratings=rating, page=page )
         
         total_results = result['total_results']
         filter_images = result['filter_images']
-        column = result['column']
         order_clause = result['order_clause']
+        
         for image in filter_images:
             image['url'] = url_for_picture(image['path'])
-        total_pages = (total_results + quantity - 1) // quantity  
+            image['id'] = image['picture_id'] # esto pq merlin no quiere usar picture_id cawn
+        total_pages = (total_results) // quantity  
+        print(quantity)
 
         return jsonify({
             "status": StatusResponse.SUCCESS.value,
+            "total_results": total_results,
             "total_pages": total_pages,
             "filtered_pictures": filter_images,
             "filter_params": {
@@ -334,12 +388,15 @@ def show_picture():
                 "locations": locations,
                 "projects": projects,
                 "ratings": scores,
-                "order": order_clause
+                "order": order_clause,
+                "page":page,
+                "quantity": quantity
+
             }
         }), 200
 
     except Exception as e:
-          return jsonify({"status": "error", "message": str(e)}), 500
+          return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)}), 500
 
 def get_locations_by_project(projects_id):
     if not projects_id:
@@ -392,8 +449,7 @@ def get_pictures_by_album(albums_id):
         pictures.append(-404)
     return  pictures
 
-
-def build_query(albums, locations, projects, tags, scores, params_order="", page=1, quantity=20, date_begin='2000-01-01', date_end=datetime.today().strftime('%Y-%m-%d')):
+def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1, params_order="", page=1, date_begin='2000-01-01', date_end=datetime.today().strftime('%Y-%m-%d')):
     offset = (page - 1) * quantity
 
     if tags and not scores:
@@ -440,8 +496,8 @@ def build_query(albums, locations, projects, tags, scores, params_order="", page
 
         order_clause = valid_order_options.get(params_order.lower()) if params_order else ""
         
-        base_query = "FROM picture AS p"
-        column  = [ "p.path", "p.date"]
+        base_query_select = "FROM picture AS p"
+        column  = ["p.picture_id", "p.path", "p.date"]
         joins = []
         where_clauses = ["p.date BETWEEN %s AND %s"]
         params = [date_begin, date_end]
@@ -464,7 +520,12 @@ def build_query(albums, locations, projects, tags, scores, params_order="", page
             column.append("proj.project_id")
             params.extend(projects)
 
-        if scores:
+        if  ratings == 0:
+            joins.append("LEFT JOIN rating AS r ON r.picture_id = p.picture_id ")
+            where_clauses.append("r.rating_id IS NULL")
+            column.append("r.rating_id")
+    
+        if scores and ratings:
             joins.append("INNER JOIN rating AS r ON r.picture_id = p.picture_id")
             where_clauses.append(f"r.score IN ({', '.join(['%s'] * len(scores))})")
             column.append("r.rating_id")
@@ -477,29 +538,28 @@ def build_query(albums, locations, projects, tags, scores, params_order="", page
             column.append("t.tag_id")
             params.extend(tags)
 
-        count_query = f"SELECT COUNT(*) {base_query} {' '.join(joins)}  WHERE {' AND '.join(where_clauses)} "        
+        cursor = mysql.connection.cursor()
+
         select_query = f"""
         SELECT {', '.join(column)}
-        {base_query} {' '.join(joins)} WHERE {' AND '.join(where_clauses)}
-        """
-
+        {base_query_select} {' '.join(joins)} WHERE {' AND '.join(where_clauses)}
+        """        
         
+        count_query = f"SELECT COUNT(*) FROM ({select_query}) as count_query"
+        print(select_query, count_query)                
+        cursor.execute(count_query, params)
+        total_results = cursor.fetchone()[0]
+
         if order_clause:
             select_query += f"ORDER BY {order_clause}"
-            count_query += f"ORDER BY {order_clause}"
-        
-        count_query += " LIMIT %s OFFSET %s"
-        select_query += " LIMIT %s OFFSET %s"
 
+        select_query += " LIMIT %s OFFSET %s"
         params.append(quantity)
         params.append(offset)
-
-        cursor = mysql.connection.cursor()        
-        cursor.execute(count_query, params)
-        total_results = cursor.fetchone()[0]        
+                
         cursor.execute(select_query, params)   
         images = cursor.fetchall()
-
+                
         filter_images = []
         processed_columns = [col.split('.', 1)[1] for col in column]
         
@@ -510,6 +570,7 @@ def build_query(albums, locations, projects, tags, scores, params_order="", page
                 temp[processed_columns[i]] = row[i]
             filter_images.append(temp)        
         
-        return {"total_results": total_results, "filter_images": filter_images , "column": processed_columns, "order_clause" : order_clause}
+        return {"total_results": total_results, "order_clause" : order_clause, "filter_images": filter_images }
     except Exception as e:
+        print(str(e))
         return {"status": StatusResponse.ERROR.value, "message":str(e)}
