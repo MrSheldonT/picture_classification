@@ -1,13 +1,12 @@
 from flask import Blueprint, jsonify, request, current_app, send_from_directory, send_file
 from utils.token_validation import token_required
 from app.extensions import mysql
-from utils.files import allowed_file, picture_to_hash, save_picture, delete_picture_file, url_for_picture, pictures_to_zip
+from utils.files import allowed_file, picture_to_hash, save_picture, delete_picture_file, url_for_picture , pictures_to_zip
 from utils.database_verification import exist_record_in_table
 from utils.audit import Table, StatusResponse, Transaccion, register_audit
 from utils.message_status import Status
 from datetime import datetime
 from math import ceil
-
 import os
 
 pictures_bp = Blueprint('pictures', __name__, url_prefix='/pictures')
@@ -16,7 +15,7 @@ pictures_bp = Blueprint('pictures', __name__, url_prefix='/pictures')
 @token_required
 def upload_picture(token_data, original_token):
     message_enpoint = ""
-    status_response = None
+    status_response = ""
     if 'file' not in request.files:
         return 'No file', 400
     
@@ -38,7 +37,7 @@ def upload_picture(token_data, original_token):
     except ValueError:
         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid date format, should be ISO 8601'}), 400
 
-
+    
     if file and allowed_file(file.filename):
         file_content = file.read()
         picture_id = picture_to_hash(file_content)
@@ -46,27 +45,29 @@ def upload_picture(token_data, original_token):
 
         if exist_record_in_table(table, parameter,picture_id):
             return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'Image alredy exists'}), 409
-
-        cursor = mysql.connection.cursor()
-        upload_folder = current_app.config['UPLOAD_FOLDER']    
         
+        cursor = mysql.connection.cursor()
+        ext =  file.filename.split('.')[1]
         try:   
+            upload_folder = current_app.config['UPLOAD_FOLDER']  
+            hight, low = save_picture(file, picture_id, upload_folder)
             
-            filepath =  save_picture(file, picture_id, upload_folder)
             query = """
                         INSERT INTO 
                             picture (picture_id, path, album_id, date)
                         VALUES (%s, %s, %s, %s)
                     """
-            
-            cursor.execute(query, (picture_id, filepath, album_id,date))
+
+            cursor.execute(query, (picture_id, f"{picture_id}.{ext}", album_id, date))
             mysql.connection.commit()
             status_response = StatusResponse.SUCCESS
-            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filepath' : filepath, 'album_id': album_id}
+            message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filename' :  file.filename, 'album_id': album_id}
             return jsonify(message_enpoint), 200
         
         except Exception as e:
-            delete_picture_file(file, picture_id, upload_folder)
+            upload_folder = current_app.config['UPLOAD_FOLDER']
+            #delete_picture_file(ext, upload_folder, picture_id)
+            #cursor.connection.rollback()
             status_response = StatusResponse.ERROR
             message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
             return jsonify(message_enpoint), 400 
@@ -86,10 +87,15 @@ def upload_picture(token_data, original_token):
     else:
         return jsonify({'status': StatusResponse.ERROR.value, 'message':'File type not allowed' , 'file' : file.filename }), 400
 
-@pictures_bp.route('/uploads/<filename>')
-def serve_image(filename):
+@pictures_bp.route('/uploads/<folder>/<filename>')
+def serve_image(folder, filename):
     upload_folder = current_app.config['UPLOAD_FOLDER']
 
+    if folder == 'original':
+        upload_folder = os.path.join(upload_folder, "original")
+    elif folder == 'low':
+        upload_folder = os.path.join(upload_folder, "low_res")
+    
     return send_from_directory(upload_folder, filename)
 
 @pictures_bp.route('/picture', methods=['GET'])
@@ -134,8 +140,7 @@ def render_picture(token_data, original_token):
 
 
 @pictures_bp.route('/show_all_pictures', methods=['GET'])
-@token_required
-def show_all_pictures(token_data, original_token):
+def show_all_pictures():
 
     page = request.args.get('page', default=1, type=int)
     quantity = request.args.get('quantity', default=20, type=int)
@@ -147,7 +152,7 @@ def show_all_pictures(token_data, original_token):
         cursor = mysql.connection.cursor()
         query = """
                     SELECT 
-                        path, picture_id, date
+                        *
                     FROM 
                         picture
                     LIMIT %s
@@ -156,18 +161,14 @@ def show_all_pictures(token_data, original_token):
         
         cursor.execute(query, (quantity, offset))
         all_pictures = cursor.fetchall()
+
         url_all_pictures = []
         for picture in all_pictures:
-            url_picture = url_for_picture(picture[0]), picture[1], picture[2]
+            url_all_pictures.append(show_picture_data(picture))
             
-            if url_picture:
-                url_all_pictures.append(url_picture)
-            else:
-                print("No valido.")
         if len(url_all_pictures):
             return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : Status.SUCCESSFULLY_CONSULTED.value, 'response' : url_all_pictures}), 200
-        else:
-            return jsonify({'status': StatusResponse.SUCCESS.value, 'message' : 'Consulted correctly, but there are no images', 'response' : url_all_pictures}), 200
+
     except Exception as e:
         return jsonify({'status': StatusResponse.ERROR.value, 'message' : str(e) }), 500
 
@@ -370,10 +371,9 @@ def show_picture(): #not token
         order_clause = result['order_clause']
         
         for image in filter_images:
-            image['url'] = url_for_picture(image['path'])
-            image['id'] = image['picture_id'] # esto pq merlin no quiere usar picture_id cawn
+            image['id'] = image['picture_id']
         total_pages = ceil(total_results / quantity)
-        print("---------------",total_results, quantity, ceil(total_results / quantity), total_pages, "---------------")
+        
         return jsonify({
             "status": StatusResponse.SUCCESS.value,
             "total_results": total_results,
@@ -397,6 +397,19 @@ def show_picture(): #not token
     except Exception as e:
           print(str(e), "---------------")
           return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)}), 500
+    
+def show_picture_data(picture):
+    #picture_id
+    #path
+    #date
+    #album_id
+    return {
+        "picture_id": picture[0]
+        , "url_low": url_for_picture(picture[1], 'low')
+        , "url_original": url_for_picture(picture[1], 'original')
+        , "date": picture[2]
+        , "album_id": picture[3]
+    }
 
 def get_locations_by_project(projects_id):
     if not projects_id:
@@ -564,12 +577,15 @@ def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1
         processed_columns = [col.split('.', 1)[1] for col in column]
         
         filter_images = []
-        for row in images:
+        for picture in images:
             temp = {}
             for i in range(len(processed_columns)):
-                temp[processed_columns[i]] = row[i]
+                temp[processed_columns[i]] = picture[i]
+            temp["url"]= url_for_picture(picture[1], 'low')
+            temp["url_original"]= url_for_picture(picture[1], 'original')
+            print(temp['url_original'])
             filter_images.append(temp)        
-        
+        print(filter_images)
         return {"total_results": total_results, "order_clause" : order_clause, "filter_images": filter_images }
     except Exception as e:
         print(str(e))

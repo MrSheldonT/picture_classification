@@ -50,7 +50,6 @@ def register():
         cursor.execute(query, (user_name, user_password, user_email)) 
         mysql.connection.commit()
 
-        #send_verification_email(user_email=user_email) the token has expired
         status_response = StatusResponse.SUCCESS
         message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
         return jsonify(message_endpoint), 201
@@ -171,7 +170,7 @@ def update_user(token_data, original_token):
 
     if exist_record_in_table("user","email", user_email):
          return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
-    # proceso sobre validación de correo y cambio en caso de existir    
+
     if exist_record_in_table("user","name", user_name):
          return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to register already exists'}), 409
   
@@ -260,33 +259,7 @@ def update_password(token_data, original_token):
         return jsonify(message_endpoint), 500
     finally:
         1
-@users_bp.route('/confirm_email<token>', methods=['GET']) ## fix
-def confirm_email(token):
-    try:
-        data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-        user_email = data['user_email']
-
-        cursor = mysql.connection.cursor()
-        cursor.execute("SELECT confirmed_on FROM user WHERE email = %s", (user_email,))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid user'}), 404
-
-        if user[0] == 'null': # marrafufada  
-            return jsonify({'status': 'info', 'message': 'Account already confirmed'}), 200
-
-        cursor.execute("UPDATE user SET confirmed_on = null, confirmed_on = %s WHERE email = %s", (datetime.now(), user_email))
-        mysql.connection.commit()
-
-        return jsonify({'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully confirmed'}), 200
-    
-    except jwt.ExpiredSignatureError:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The confirmation link has expired'}), 400
-    except jwt.InvalidTokenError:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Invalid token'}), 400
-    
-
+ 
 @users_bp.route('/login', methods = ['POST'])
 def login_user():
     
@@ -355,22 +328,3 @@ def login_user():
                     user_id=user[0], 
                     entity=Table.user
                 )
-
-def send_verification_email(user_email):
-    try:
-        token = jwt.encode({
-            'user_email': user_email,
-            'exp': datetime.now()  + timedelta(hours=1)  
-        }, current_app.config['SECRET_KEY'], algorithm='HS256')
-
-        confirm_url = url_for('miscellaneous.confirm_email', token=token, _external=True)
-
-        subject = 'Confirma tu cuenta'
-        html = f'''
-        <p>Gracias por registrarte. Por favor, confirma tu cuenta haciendo clic en el enlace:</p>
-        <p><a href="{confirm_url}">Confirmar mi cuenta</a></p>
-        '''
-        #msg = Message(subject, sender=current_app.config['MAIL_USERNAME'], recipients=[user_email], html=html)
-        #mail.send(msg)
-    except Exception as e:
-        print(str(e))

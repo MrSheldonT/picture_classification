@@ -14,7 +14,7 @@ def valid_token(token):
         return jsonify({ 'message' : 'Invalid token'}), 403
     except Exception as e:
         return jsonify({ 'message' : str(e) })
-    
+        
     return data
 
 def token_required(f):
