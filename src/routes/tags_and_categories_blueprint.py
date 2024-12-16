@@ -210,10 +210,20 @@ def create_tag(token_data, original_token):
         cursor = mysql.connection.cursor()
         query = """INSERT INTO tag(name, category_id)
         VALUES(%s,%s);"""   
-        cursor.execute(query,(tag_name, category_id))        
+        cursor.execute(query, (tag_name, category_id))        
         mysql.connection.commit()
+
+        # Obtener el ID del tag recién creado
+        tag_id = cursor.lastrowid  # Obtiene el ID del último registro insertado
+        
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': str(Status.SUCCESSFULLY_CREATED), 'tag_name' : tag_name, 'category_id' : category_id}
+        message_enpoint = {
+            'status': StatusResponse.SUCCESS.value, 
+            'message': str(Status.SUCCESSFULLY_CREATED),
+            'tag_name': tag_name, 
+            'category_id': category_id,
+            'tag_id': tag_id  # Incluir el ID del tag creado en la respuesta
+        }
 
         return jsonify(message_enpoint), 200
     
@@ -234,6 +244,7 @@ def create_tag(token_data, original_token):
                 user_id=token_data['user_id'], 
                 entity=Table.tag
         )
+
 
 
 @tags_and_categories_bp.route('/update_tag', methods=['PATCH'])
@@ -424,7 +435,7 @@ def tag_statistics(token_data, original_token):
                         tag_id = %s
                 """
         cursor.execute(query, (tag_id, ))
-        response = cursor.fetchone()
+        response = cursor.fetchone()[0]
         return jsonify({'status': StatusResponse.SUCCESS.value, 'message': response}), 200
     except Exception as e:
         return jsonify({'status': StatusResponse.ERROR.value, 'message': str(e)})
