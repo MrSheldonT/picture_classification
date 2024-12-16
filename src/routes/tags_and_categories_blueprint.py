@@ -29,8 +29,24 @@ def create_category(token_data, original_token):
                     VALUES(%s)
                 """
         cursor.execute(query, (category_name,))
+        
+        # Recupera el último ID insertado
+        last_id = cursor.lastrowid
+        
+        # Consulta del registro completo
+        select_query = """
+            SELECT * FROM category WHERE category_id = %s
+        """
+        cursor.execute(select_query, (last_id,))
+        category = cursor.fetchone()
+        
         mysql.connection.commit()
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'category_name' : category_name}
+        
+        message_enpoint = {
+            'status': StatusResponse.SUCCESS.value, 
+            'message': 'Record was saved correctly', 
+            'category': category
+        }
         status_response = StatusResponse.SUCCESS
         return jsonify(message_enpoint), 200
     
@@ -92,7 +108,7 @@ def update_category(token_data, original_token):
     if not category_id or not category_name:
         return jsonify({'message' : Status.NOT_ENTERED.value, 'category_id' : category_id, 'category_name' : category_name}), 400
     
-    if not exist_record_in_table("category", "name", category_id):
+    if not exist_record_in_table("category", "category_id", category_id):
         return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.RECORD_NOT_FOUND.value}), 404
     
     cursor = None
