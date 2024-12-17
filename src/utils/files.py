@@ -6,7 +6,7 @@ import zipfile
 import os
 import mimetypes
 import io
-
+import re
   
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png'}
 ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif'}
@@ -73,32 +73,36 @@ def url_for_picture(filename, type):
         return picture_url
     else:
         return None
+def sanitize_filename(filename):
+    """Eliminar caracteres no válidos para nombres de archivo."""
+    return re.sub(r'[<>:"/\\|?*]', '_', filename)
 
 def pictures_to_zip(paths):
-    zip_buffer = io.BytesIO() 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for path in paths:
-            file_path = path["path"]
-            
-            if not os.path.exists(file_path):
-                print(f"El archivo no existe: {file_path}")
-                continue  
-            original_name = os.path.basename(file_path)
-            name_without_ext, ext = os.path.splitext(original_name)
+    zip_buffer = io.BytesIO()
+    
+    try:        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for path in paths:
+                upload_folder = current_app.config['UPLOAD_FOLDER']                
+                file_path_original = os.path.join(upload_folder, 'original', path["path"])
+                
+                if not os.path.exists(file_path_original):
+                    print(f"El archivo no existe: {file_path_original}")
+                    continue
+                
+                original_name = os.path.basename(file_path_original)                
 
-            name_parts = []
-
-            for column, value in path.items():
-               
-                if column != "path":  
-                    name_parts.append(f"[{column}_{value}]")
-            
-            new_name = "_".join(name_parts) + f"[{name_without_ext}]{ext.strip('_')}"
-
-            try:
-                zipf.write(file_path, arcname=new_name)
-            except Exception as e:
-                print(f"Error al agregar {file_path} al ZIP: {e}")
-
-    zip_buffer.seek(0)  
+                print(f"Agregando archivo: {file_path_original}")
+                
+                try:
+                    zipf.write(file_path_original, arcname=original_name)
+                    
+                except Exception as e:
+                    print(f"Error al agregar {file_path_original} al ZIP: {e}")
+        
+        zip_buffer.seek(0)
+        
+    except Exception as e:
+        print(f"Error general al crear el ZIP: {e}")
+    
     return zip_buffer

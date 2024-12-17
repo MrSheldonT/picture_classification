@@ -257,7 +257,6 @@ def delete_picture(token_data, original_token):
 @pictures_bp.route('/download_picture_zip', methods=['GET'])
 @token_required
 def download_picture_zip(token_data, original_token):
-
     date_begin = request.args.get('date_begin', type=str, default='2000-01-01')
     date_end = request.args.get('date_end', type=str, default=datetime.today().strftime('%Y-%m-%d'))
     # las fechas siempre estarán
@@ -271,12 +270,11 @@ def download_picture_zip(token_data, original_token):
 
     try:
         result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order="", quantity=quantity )
-        
+    
         path_pictures = result['filter_images']
 
         if not path_pictures:
-            return jsonify({"status": StatusResponse.SUCCESS.value ,"message": "No pictures found for the specified filters."}), 404
-
+            return jsonify({"status": StatusResponse.SUCCESS.value ,"message": "No pictures found for the specified filters."}), 404        
         name_zip = '[' + str(date_begin) + ']' + '[' + str(date_end)  + ']' 
         name_zip += ( '[' + "_".join(tags) + ']' ) if tags else "" 
         name_zip += ( '[' + "_".join(albums) + ']' ) if albums else "" 
