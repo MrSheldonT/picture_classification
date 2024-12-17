@@ -3,9 +3,8 @@ class Config:
     MYSQL_HOST = '127.0.0.1'
     MYSQL_DB = 'picture_classification'
     MYSQL_USER = 'root'
-    MYSQL_PASSWORD = ''
+    MYSQL_PASSWORD = '1430623'
     SECRET_KEY = os.environ.get('SECRET_KEY')
-    print(os.environ.get('SECRET_KEY'))
     #MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     #MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_SERVER = 'smtp.gmail.com'

@@ -36,7 +36,7 @@ def register():
         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Password must be longer than 5 characters'}), 400
 
     if exist_record_in_table("user","email", user_email):
-         return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
     
     if exist_record_in_table("user","name", user_name):
          return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to register already exists'}), 409
@@ -286,7 +286,6 @@ def login_user():
                 """
         cursor.execute(query, (user_name, user_name))
         user = cursor.fetchone()
-        
         if user is None:
             message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'The account does not exist'}
             status_response = StatusResponse.ERROR    
@@ -295,7 +294,7 @@ def login_user():
         if user[3] == 0:
             return jsonify({'status': StatusResponse.ERROR.value, 'message': 'Account denied, please contact administration for permission'}), 403
                                                                             
-        if user and bcrypt.check_password_hash(user[2], user_password):
+        if user and bcrypt.check_password_hash(user[2], user_password):            
             token = jwt.encode({
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)

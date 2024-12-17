@@ -60,7 +60,7 @@ def upload_picture(token_data, original_token):
 
             cursor.execute(query, (picture_id, f"{picture_id}.{ext}", album_id, date))
             mysql.connection.commit()
-            status_response = StatusResponse.SUCCESS
+            status_response = StatusResponse.SUCCESS.value
             message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Record was saved correctly', 'picture_id' : picture_id, 'filename' :  file.filename, 'album_id': album_id}
             return jsonify(message_enpoint), 200
         
@@ -210,32 +210,34 @@ def delete_picture(token_data, original_token):
         if path is None:
             message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : 'The requested image was not found, please check again'}
             return jsonify(message_enpoint), 404
-
         if path:
-            normal_path  = os.path.abspath(os.path.normpath(path))
-            if os.path.exists(normal_path):
+            path_low = current_app.config['UPLOAD_FOLDER'] + '\\low_res\\' + path
+            original = current_app.config['UPLOAD_FOLDER'] + '\\original\\' + path
+            try:
+                os.remove(path_low)
+                os.remove(original)
                 query = """
                             DELETE FROM
                                 picture
                             WHERE
                                 picture_id = %s
-                        """
+                """
                 cursor.execute(query, (picture_id, ))
                 mysql.connection.commit()
-                os.remove(normal_path)
-        
-            else:
+                message_enpoint = {'status' : StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted', 'picture_id': picture_id}
+                status_response = StatusResponse.SUCCESS.value
+                return jsonify(message_enpoint), 200
+            except Exception as e:
                 message_enpoint = {'status': StatusResponse.ERROR.value , 'message': 'The requested image was not found in the file system, please check again.', 'path': normal_path}
                 return jsonify(message_enpoint), 404
+            
         else:
             return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'The requested image was not found in the database, please check again.'}), 404
        
-        message_enpoint = {'status' : StatusResponse.SUCCESS.value, 'message' : 'Correctly deleted', 'picture_id': picture_id}
-        status_response = StatusResponse.SUCCESS
-        return jsonify(message_enpoint), 200
+        
 
     except Exception as e:
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         message_enpoint = {'status' : StatusResponse.ERROR.value , 'message' : str(e)}
         return jsonify(message_enpoint), 500
     
@@ -244,7 +246,7 @@ def delete_picture(token_data, original_token):
             cursor.close()
         
         register_audit(
-                type_=Transaccion.DELETE, 
+                type_=Transaccion.DELETE.value, 
                 request=request.url,
                 message= message_enpoint,
                 status= status_response,
@@ -395,7 +397,6 @@ def show_picture(): #not token
         }), 200
 
     except Exception as e:
-          print(str(e), "---------------")
           return jsonify({"status": StatusResponse.ERROR.value, "message": str(e)}), 500
     
 def show_picture_data(picture):
@@ -583,10 +584,7 @@ def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1
                 temp[processed_columns[i]] = picture[i]
             temp["url"]= url_for_picture(picture[1], 'low')
             temp["url_original"]= url_for_picture(picture[1], 'original')
-            print(temp['url_original'])
-            filter_images.append(temp)        
-        print(filter_images)
+            filter_images.append(temp)    
         return {"total_results": total_results, "order_clause" : order_clause, "filter_images": filter_images }
     except Exception as e:
-        print(str(e))
         return {"status": StatusResponse.ERROR.value, "message":str(e)}
