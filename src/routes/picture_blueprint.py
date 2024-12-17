@@ -273,7 +273,7 @@ def download_picture_zip(token_data, original_token):
         result = build_query(date_begin=date_begin, date_end=date_end, tags=tags, albums=albums, locations=locations, projects=projects, scores=scores, params_order="", quantity=quantity )
         
         path_pictures = result['filter_images']
-        
+
         if not path_pictures:
             return jsonify({"status": StatusResponse.SUCCESS.value ,"message": "No pictures found for the specified filters."}), 404
 
