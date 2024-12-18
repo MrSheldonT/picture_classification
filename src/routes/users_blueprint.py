@@ -300,27 +300,26 @@ def login_user():
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
             message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}
-            status_response = StatusResponse.SUCCESS
+            status_response = StatusResponse.SUCCESS.value
 
             return jsonify(message_endpoint), 200
         
         
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         return jsonify(message_endpoint), 401
     
     except Exception as e:
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         return jsonify(message_endpoint), 500
     
     finally:
         if cursor:
             cursor.close()
         if user is not None:
-
             register_audit(
-                    type_=Transaccion.OTHERS, 
+                    type_=Transaccion.OTHERS.value, 
                     request=request.url,
                     message= message_endpoint,
                     status=status_response, 

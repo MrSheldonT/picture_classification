@@ -47,18 +47,6 @@ def get_mime_type(filename):
     mime_type, _ = mimetypes.guess_type(filename)
     return mime_type
 
-def delete_picture_file(filename, upload_folder, picture_id):
-
-    filename = f"{picture_id}.{1}"
-    filepath = os.path.join(upload_folder, filename)
-    if os.path.exists(filepath):
-        try:
-            os.remove(filepath)
-            return True
-        except Exception as e:
-            print(f"Error: {e}")
-            return False
-
 def url_for_picture(filename, type):
     filename = os.path.basename(filename)
     upload_folder = current_app.config['UPLOAD_FOLDER']

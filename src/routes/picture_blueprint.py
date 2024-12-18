@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, current_app, send_from_directory, send_file
 from utils.token_validation import token_required
 from app.extensions import mysql
-from utils.files import allowed_file, picture_to_hash, save_picture, delete_picture_file, url_for_picture , pictures_to_zip
+from utils.files import allowed_file, picture_to_hash, save_picture, url_for_picture , pictures_to_zip
 from utils.database_verification import exist_record_in_table
 from utils.audit import Table, StatusResponse, Transaccion, register_audit
 from utils.message_status import Status
