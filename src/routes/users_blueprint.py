@@ -264,14 +264,12 @@ def update_password(token_data, original_token):
 def login_user():
     
     user_name = request.form.get('user_name', type=str)
-    user_password = request.form.get('user_password', type=str)
-    status_response = StatusResponse.ERROR
+    user_password = request.form.get('user_password', type=str)    
     message_endpoint = ""
     user = ""
 
     if not user_name or not user_password:
         return jsonify({'status': StatusResponse.ERROR.value, 'message': Status.NOT_ENTERED.value, 'user_name': user_name, 'user_password' : user_password}), 400
-
     cursor = None
     try:       
         cursor = mysql.connection.cursor()
@@ -287,8 +285,7 @@ def login_user():
         cursor.execute(query, (user_name, user_name))
         user = cursor.fetchone()
         if user is None:
-            message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'The account does not exist'}
-            status_response = StatusResponse.ERROR    
+            message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'The account does not exist'}            
             return jsonify(message_endpoint), 401
         
         if user[3] == 0:
@@ -299,19 +296,16 @@ def login_user():
                 'user_id': user[0],
                 'exp' : datetime.now() + timedelta(hours=24)
             }, current_app.config['SECRET_KEY'], algorithm='HS256')
-            message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}
-            status_response = StatusResponse.SUCCESS.value
+            message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successful login', 'token' : token}            
 
             return jsonify(message_endpoint), 200
         
         
-        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}
-        status_response = StatusResponse.ERROR.value
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': 'Incorrect username or password'}        
         return jsonify(message_endpoint), 401
     
     except Exception as e:
-        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
-        status_response = StatusResponse.ERROR.value
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}        
         return jsonify(message_endpoint), 500
     
     finally:
