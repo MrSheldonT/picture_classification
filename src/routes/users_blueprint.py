@@ -315,14 +315,7 @@ def login_user():
         return jsonify(message_endpoint), 500
     
     finally:
+        
         if cursor:
             cursor.close()
-        if user is not None:
-            register_audit(
-                    type_=Transaccion.OTHERS.value, 
-                    request=request.url,
-                    message= message_endpoint,
-                    status=status_response, 
-                    user_id=user[0], 
-                    entity=Table.user
-                )
+        
