@@ -231,9 +231,7 @@ def delete_picture(token_data, original_token):
             
         else:
             return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'The requested image was not found in the database, please check again.'}), 404
-       
-        
-
+               
     except Exception as e:
         status_response = StatusResponse.ERROR.value
         message_enpoint = {'status' : StatusResponse.ERROR.value , 'message' : str(e)}
