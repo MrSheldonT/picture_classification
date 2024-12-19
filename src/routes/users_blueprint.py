@@ -50,12 +50,12 @@ def register():
         cursor.execute(query, (user_name, user_password, user_email)) 
         mysql.connection.commit()
 
-        status_response = StatusResponse.SUCCESS
+        status_response = StatusResponse.SUCCESS.value
         message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': 'Account successfully created', 'user_name' : user_name, 'user_email': user_email}
         return jsonify(message_endpoint), 201
     
     except Exception as e:
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
         return jsonify(message_endpoint) ,500
     
@@ -135,22 +135,22 @@ def update_status_user(token_data, original_token):
         cursor.execute(query, (user_status, user_id))
         mysql.connection.commit()
         message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': Status.SUCCESSFULLY_UPDATED.value, 'user_id': user_id}
-        status_response = StatusResponse.SUCCESS
+        status_response = StatusResponse.SUCCESS.value
         return jsonify(message_endpoint), 200
     except Exception as e:
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message' : str(e) }
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         return jsonify(message_endpoint), 500
     finally:
         if cursor:
             cursor.close()
         register_audit(
-                type_= Transaccion.UPDATE, 
+                type_= Transaccion.UPDATE.value, 
                 request= request.url,
                 message= message_endpoint,
                 status= status_response,
                 user_id= token_data['user_id'], 
-                entity= Table.user
+                entity= Table.user.value
             )
 
 @users_bp.route('/update_user', methods=['PATCH'])
@@ -251,7 +251,7 @@ def update_password(token_data, original_token):
                     """
             cursor.execute(query, (new_password_hash, token_data['user_id']))
             mysql.connection.commit()
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED }
+        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED.value }
         status_response = StatusResponse.ERROR
     except Exception as e:
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}

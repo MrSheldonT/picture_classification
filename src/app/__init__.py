@@ -10,7 +10,10 @@ def create_app():
     app = Flask(__name__)
     
     app.config.from_object(Config)
-    
+    def init_db():
+        with app.app_context():
+            with open("sql_definition/structure_database.sql") as f:
+                mysql.engine.execute(f.read())
     mysql.init_app(app)
     bcrypt.init_app(app)
     CORS(app)
@@ -28,18 +31,7 @@ def create_app():
         
         
     @app.route('/')
-    def index():
-        import os
-        from app.extensions import mysql
-        cursor = mysql.connection.cursor()
-        query = """INSERT INTO user(email, name, password)
-                    VALUES('clasificacion.fotos@gmail.com', 'clasificacion_fotos', %s)"""
-        print("--------------------------")
-        print(os.environ.get('ADMIN_PASSWORD'))
-        user_password = bcrypt.generate_password_hash(os.environ.get('ADMIN_PASSWORD')).decode('utf-8')
-        cursor.execute(query, (user_password,) )
-        mysql.connection.commit()
-
+    def index():        
         return """
 <pre>
 ·▄▄▄▄         ▐ ▄  ▄▄▄ .

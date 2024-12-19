@@ -216,10 +216,10 @@ def create_tag(token_data, original_token):
         # Obtener el ID del tag recién creado
         tag_id = cursor.lastrowid  # Obtiene el ID del último registro insertado
         
-        status_response = StatusResponse.SUCCESS
+        status_response = StatusResponse.SUCCESS.value
         message_enpoint = {
             'status': StatusResponse.SUCCESS.value, 
-            'message': str(Status.SUCCESSFULLY_CREATED),
+            'message': str(Status.SUCCESSFULLY_CREATED.value),
             'tag_name': tag_name, 
             'category_id': category_id,
             'tag_id': tag_id  # Incluir el ID del tag creado en la respuesta
@@ -228,7 +228,7 @@ def create_tag(token_data, original_token):
         return jsonify(message_enpoint), 200
     
     except Exception as e:
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
 
         return jsonify(message_enpoint), 500
@@ -237,7 +237,7 @@ def create_tag(token_data, original_token):
         if cursor:
             cursor.close()
         register_audit(
-                type_=Transaccion.CREATE, 
+                type_=Transaccion.CREATE.value, 
                 request=request.url,
                 message=message_enpoint,
                 status=status_response,

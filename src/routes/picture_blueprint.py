@@ -190,9 +190,6 @@ def delete_picture(token_data, original_token):
     if not picture_id:
         return jsonify({'status' : StatusResponse.ERROR.value, 'message': 'Parameters not entered' }), 400
 
-    if not exist_record_in_table(table, parameter, picture_id):
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The image was not found'})
-    
     cursor = None
     try:    
         cursor = mysql.connection.cursor()
@@ -207,6 +204,7 @@ def delete_picture(token_data, original_token):
         cursor.execute(query, ( picture_id, ))
 
         path = cursor.fetchone()[0]
+       
         if path is None:
             message_enpoint = {'status': StatusResponse.ERROR.value, 'message' : 'The requested image was not found, please check again'}
             return jsonify(message_enpoint), 404
@@ -228,7 +226,7 @@ def delete_picture(token_data, original_token):
                 status_response = StatusResponse.SUCCESS.value
                 return jsonify(message_enpoint), 200
             except Exception as e:
-                message_enpoint = {'status': StatusResponse.ERROR.value , 'message': 'The requested image was not found in the file system, please check again.', 'path': normal_path}
+                message_enpoint = {'status': StatusResponse.ERROR.value , 'message': 'The requested image was not found in the file system, please check again.', 'path': original}
                 return jsonify(message_enpoint), 404
             
         else:

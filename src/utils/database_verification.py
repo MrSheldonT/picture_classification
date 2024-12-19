@@ -9,7 +9,6 @@ def exist_record_in_table(table, parameter, value):
         cursor.execute(query, (value, ))
         response = cursor.fetchone()
         cursor.close()
-        print(response)
         return response is not None
 
     except Exception as e:

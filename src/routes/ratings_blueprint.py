@@ -45,12 +45,12 @@ def create_rating(token_data, original_token):
                         rating(picture_id, user_id, score, date, tag_id)
                     VALUES(%s, %s, %s, %s, %s)
                 """
-        print(picture_id,  token_data['user_id'], rating_score, rating_date, tag_id)
+        
         cursor.execute(query,(picture_id, token_data['user_id'], rating_score, rating_date, tag_id))
         mysql.connection.commit()
  
         status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id,'rating_id':response2[0][0] }
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id}
 
         return jsonify(message_enpoint), 201
     
