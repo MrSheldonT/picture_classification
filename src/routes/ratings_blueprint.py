@@ -48,14 +48,15 @@ def create_rating(token_data, original_token):
         
         cursor.execute(query,(picture_id, token_data['user_id'], rating_score, rating_date, tag_id))
         mysql.connection.commit()
+        new_rating_id = cursor.lastrowid
  
-        status_response = StatusResponse.SUCCESS
-        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id}
+        status_response = StatusResponse.SUCCESS.value
+        message_enpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'The rating was recorded correctly', 'rating_id': new_rating_id, 'picture_id' : picture_id, 'user_id' : token_data['user_id'], 'score' : rating_score, 'date' : rating_date, 'tag_id': tag_id}
 
         return jsonify(message_enpoint), 201
     
     except Exception as e:
-        status_response = StatusResponse.ERROR
+        status_response = StatusResponse.ERROR.value
         message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
 
         return jsonify(message_enpoint), 500
@@ -64,7 +65,7 @@ def create_rating(token_data, original_token):
         if cursor:
             cursor.close()
         register_audit(
-                type_=Transaccion.CREATE, 
+                type_=Transaccion.CREATE.value, 
                 request=request.url,
                 message=message_enpoint,
                 status=status_response,

@@ -162,34 +162,48 @@ def update_user(token_data, original_token):
     user_email = request.form.get('user_email', type=str)
     status_response = ""
     message_endpoint = ""
-    if not user_name or not token_data['user_id']:
-        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name}), 400
+    if (not user_name and not user_email) or not token_data['user_id'] :
+        return jsonify({'status': StatusResponse.ERROR.value, 'message' : Status.NOT_ENTERED.value, 'user_id' : token_data['user_id'], 'user_name' : user_name, 'user_email': user_email}), 400
 
-    if not valid_user(user_name) or not valid_email(user_email):
-        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email or the username that you are trying to register is not valid'}), 400
+    if user_name and not valid_user(user_name):
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The username that you are trying to register is not valid'}), 400
 
-    if exist_record_in_table("user","email", user_email):
+    if user_email and not valid_email(user_email):
+        return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register is not valid'}), 400
+
+    if user_email and exist_record_in_table("user","email", user_email):
          return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The email that you are trying to register already exists'}), 409
 
-    if exist_record_in_table("user","name", user_name):
+    if user_name and exist_record_in_table("user","name", user_name):
          return jsonify({'status': StatusResponse.ERROR.value, 'message': 'The user that you are trying to register already exists'}), 409
-  
     cursor = None
 
     try:
         
         cursor = mysql.connection.cursor()
-        query = """
+        query_user = """
                     UPDATE 
                         user
                     SET 
-                        name= %s, email = %s
+                        name= %s
                     WHERE 
                         user_id = %s 
                 """
+        query_email = """
+                    UPDATE 
+                        user
+                    SET 
+                        email = %s
+                    WHERE 
+                        user_id = %s 
+                """
+        if user_name:
+            cursor.execute(query_user, (user_name, token_data['user_id']))  
+            mysql.connection.commit()
+        if user_email:
+            cursor.execute(query_email, (user_email, token_data['user_id']))  
+            mysql.connection.commit()
 
-        cursor.execute(query, (user_name, user_email, token_data['user_id']))  
-        mysql.connection.commit()
         message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message' : 'Successfully updated', 'user_name': user_name, 'user_email': user_email}
         status_response = StatusResponse.SUCCESS
         return jsonify(message_endpoint), 200
@@ -223,7 +237,7 @@ def update_password(token_data, original_token):
         
     if  not valid_password(new_password):
         return jsonify({'status': StatusResponse.ERROR.value, 'message': "The password is not valid"})
-    message_enpoint = ""
+    message_endpoint = ""
     status_response = ""
     cursor = None
     try:
@@ -251,14 +265,15 @@ def update_password(token_data, original_token):
                     """
             cursor.execute(query, (new_password_hash, token_data['user_id']))
             mysql.connection.commit()
-        message_enpoint = {'status': StatusResponse.ERROR.value, 'message': Status.SUCCESSFULLY_UPDATED.value }
-        status_response = StatusResponse.ERROR
+            message_endpoint = {'status': StatusResponse.SUCCESS.value, 'message': Status.SUCCESSFULLY_UPDATED.value }
+            status_response = StatusResponse.SUCCESS.value
+            return jsonify(message_endpoint),200
+        message_endpoint = {'status': StatusResponse.ERROR.value, 'message': "The password does not update" }
+        return jsonify(message_endpoint), 401
     except Exception as e:
         message_endpoint = {'status': StatusResponse.ERROR.value, 'message': str(e)}
         status_response = StatusResponse.ERROR
         return jsonify(message_endpoint), 500
-    finally:
-        1
  
 @users_bp.route('/login', methods = ['POST'])
 def login_user():
