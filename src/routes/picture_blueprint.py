@@ -47,7 +47,8 @@ def upload_picture(token_data, original_token):
             return jsonify({'status' : StatusResponse.ERROR.value, 'message' : 'Image alredy exists'}), 409
         
         cursor = mysql.connection.cursor()
-        ext =  file.filename.split('.')[1]
+        ext = file.filename.split('.')[-1]
+
         try:   
             upload_folder = current_app.config['UPLOAD_FOLDER']  
             hight, low = save_picture(file, picture_id, upload_folder)
@@ -68,7 +69,7 @@ def upload_picture(token_data, original_token):
             upload_folder = current_app.config['UPLOAD_FOLDER']
             #delete_picture_file(ext, upload_folder, picture_id)
             #cursor.connection.rollback()
-            status_response = StatusResponse.ERROR
+            status_response = StatusResponse.ERROR.value
             message_enpoint = {'status': StatusResponse.ERROR.value, 'message': str(e) }
             return jsonify(message_enpoint), 400 
 
