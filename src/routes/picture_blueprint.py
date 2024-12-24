@@ -534,26 +534,28 @@ def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1
             where_clauses.append("r.rating_id IS NULL")
             column.append("r.rating_id")
     
-        if scores and ratings:
+        if (scores and ratings) or tags:
             joins.append("INNER JOIN rating AS r ON r.picture_id = p.picture_id")
-            where_clauses.append(f"r.score IN ({', '.join(['%s'] * len(scores))})")
-            column.append("r.rating_id")
-            column.append("r.score")
-            params.extend(scores)
-        
-        if tags:
-            joins.append("INNER JOIN tag AS t ON t.tag_id = r.tag_id")
-            where_clauses.append(f"t.tag_id IN ({', '.join(['%s'] * len(tags))})")
-            column.append("t.tag_id")
-            params.extend(tags)
+            
+            if scores:
+                where_clauses.append(f"r.score IN ({', '.join(['%s'] * len(scores))})")
+                params.extend(scores)
+
+            if tags:
+                joins.append("INNER JOIN tag AS t ON t.tag_id = r.tag_id")
+                where_clauses.append(f"t.tag_id IN ({', '.join(['%s'] * len(tags))})")
+                params.extend(tags)
+
+            column.append("GROUP_CONCAT(CONCAT_WS('|', r.rating_id, r.score, t.tag_id)) AS ratings_data")
+
 
         cursor = mysql.connection.cursor()
 
         select_query = f"""
         SELECT {', '.join(column)}
         {base_query_select} {' '.join(joins)} WHERE {' AND '.join(where_clauses)}
-        """        
-        
+        GROUP BY p.picture_id
+        """                
         count_query = f"SELECT COUNT(*) FROM ({select_query}) as count_query"
         
         cursor.execute(count_query, params)
@@ -570,16 +572,29 @@ def build_query(albums, locations, projects, tags, scores, quantity, ratings = 1
         images = cursor.fetchall()
                 
         filter_images = []
-        processed_columns = [col.split('.', 1)[1] for col in column]
+        processed_columns = [col.split('.', 1)[1].split(' AS ')[-1] for col in column] 
         
         filter_images = []
         for picture in images:
             temp = {}
             for i in range(len(processed_columns)):
-                temp[processed_columns[i]] = picture[i]
-            temp["url"]= url_for_picture(picture[1], 'low')
-            temp["url_original"]= url_for_picture(picture[1], 'original')
-            filter_images.append(temp)    
+                column_name = processed_columns[i]
+                if column_name == "ratings_data":
+                    ratings_list = picture[i].split(',') if picture[i] else []
+                    temp["ratings"] = [
+                        {
+                            "rating_id": rating.split('|')[0],
+                            "score": rating.split('|')[1],
+                            "tag_id": rating.split('|')[2]
+                        }
+                        for rating in ratings_list
+                    ]
+                else:
+                    temp[column_name] = picture[i]
+            temp["url"] = url_for_picture(picture[1], 'low')
+            temp["url_original"] = url_for_picture(picture[1], 'original')
+            filter_images.append(temp)
+  
         return {"total_results": total_results, "order_clause" : order_clause, "filter_images": filter_images }
     except Exception as e:
         return {"status": StatusResponse.ERROR.value, "message":str(e)}
